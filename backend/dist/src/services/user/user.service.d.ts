@@ -16,7 +16,7 @@ export declare class StaffService {
     updateUploadedStaff(createStaffDto: any, options?: {
         allowCreate?: boolean;
     }): Promise<any>;
-    resetPassword(userId: string, preferredPassword?: string, actingUserId?: string): Promise<{
+    resetPassword(userId: string, preferredPassword?: string, actingUserId?: string, delivery?: 'email' | 'temporary'): Promise<{
         emailed: boolean;
         expiresAt: string;
         generatedPassword?: undefined;

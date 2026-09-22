@@ -54,7 +54,9 @@ let StaffController = class StaffController {
         this.branchService = branchService;
     }
     isHrAdminActor(user) {
-        return (0, access_control_util_1.userIsSuperAdmin)(user) || (0, access_control_util_1.userHasScope)(user, ['group', 'entity']);
+        return ((0, access_control_util_1.userIsSuperAdmin)(user) ||
+            (0, access_control_util_1.userHasScope)(user, ['group', 'entity']) ||
+            (0, access_control_util_1.userHasRole)(user, ['hr-admin', 'hr admin', 'hr-administrator', 'hr administrator']));
     }
     getDepartmentName(user) {
         const value = typeof user?.department === 'object' && user?.department !== null
@@ -261,7 +263,8 @@ let StaffController = class StaffController {
         if (!this.isHrAdminActor(actingUser)) {
             throw new common_1.ForbiddenException('You do not have permission to reset staff passwords.');
         }
-        return this.staffService.resetPassword(id, body?.newPassword, actingUser?._id);
+        const delivery = body?.delivery === 'temporary' ? 'temporary' : 'email';
+        return this.staffService.resetPassword(id, body?.newPassword, actingUser?._id, delivery);
     }
 };
 exports.StaffController = StaffController;

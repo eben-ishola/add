@@ -342,7 +342,7 @@ let AuthService = class AuthService {
         }
         return this.createAccessToken(user, true, (0, request_source_1.normalizeRequestSource)(rawSource));
     }
-    async changePassword(userId, currentPassword, newPassword, mfaSetupPending = false, rawSource) {
+    async changePassword(userId, currentPassword, newPassword, mfaSetupPending = false, rawSource, mfaVerified = false) {
         if (!userId) {
             throw new common_1.UnauthorizedException('User context is missing.');
         }
@@ -378,7 +378,12 @@ let AuthService = class AuthService {
                 mfaSetupRequired: true,
             };
         }
-        return { message: 'Password updated successfully.' };
+        const accessToken = await this.createAccessToken(user, mfaVerified, (0, request_source_1.normalizeRequestSource)(rawSource));
+        return {
+            message: 'Password updated successfully.',
+            accessToken,
+            access_token: accessToken,
+        };
     }
     buildEmailQuery(email) {
         return (email ?? '').trim();

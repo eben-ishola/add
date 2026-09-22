@@ -83,15 +83,15 @@ export declare class AuthService {
         mfaTrustDays: number;
     }>;
     issueAccessTokenAfterMfaSetup(userId: string, rawSource?: unknown): Promise<string>;
-    changePassword(userId: string | undefined, currentPassword?: string, newPassword?: string, mfaSetupPending?: boolean, rawSource?: unknown): Promise<{
+    changePassword(userId: string | undefined, currentPassword?: string, newPassword?: string, mfaSetupPending?: boolean, rawSource?: unknown, mfaVerified?: boolean): Promise<{
         message: string;
         accessToken: string;
         access_token: string;
         mfaSetupRequired: boolean;
     } | {
         message: string;
-        accessToken?: undefined;
-        access_token?: undefined;
+        accessToken: string;
+        access_token: string;
         mfaSetupRequired?: undefined;
     }>;
     private buildEmailQuery;

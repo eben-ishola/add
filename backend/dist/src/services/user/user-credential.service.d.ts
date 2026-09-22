@@ -2,6 +2,7 @@ import { Model } from 'mongoose';
 import { User } from 'src/schemas/user.schema';
 import { MailService } from 'src/services/comms/mail.service';
 import { NoticeService } from 'src/services/comms/notice.service';
+export type PasswordResetDelivery = 'email' | 'temporary';
 export declare class UserCredentialService {
     private readonly staffModel;
     private readonly notificationService;
@@ -10,7 +11,7 @@ export declare class UserCredentialService {
     private createNotice;
     private getPortalBaseUrl;
     private generateRandomPassword;
-    resetPassword(userId: string, preferredPassword?: string, actingUserId?: string): Promise<{
+    resetPassword(userId: string, preferredPassword?: string, actingUserId?: string, delivery?: PasswordResetDelivery): Promise<{
         emailed: boolean;
         expiresAt: string;
         generatedPassword?: undefined;

@@ -62,7 +62,7 @@ let UserCredentialService = class UserCredentialService {
         }
         return password;
     }
-    async resetPassword(userId, preferredPassword, actingUserId) {
+    async resetPassword(userId, preferredPassword, actingUserId, delivery = 'email') {
         const user = await this.staffModel.findById(userId);
         if (!user) {
             throw new Error('User not found');
@@ -71,7 +71,10 @@ let UserCredentialService = class UserCredentialService {
         const resetRequestedBy = actingUserId && mongoose_2.default.Types.ObjectId.isValid(actingUserId)
             ? new mongoose_2.default.Types.ObjectId(actingUserId)
             : null;
-        if (email) {
+        if (delivery === 'email') {
+            if (!email) {
+                throw new Error('This user does not have an email address. Choose a temporary password instead.');
+            }
             const rawToken = crypto.randomBytes(32).toString('hex');
             const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
             user.passwordResetToken = hashedToken;

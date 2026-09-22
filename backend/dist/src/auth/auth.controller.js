@@ -30,7 +30,7 @@ let AuthController = class AuthController {
     }
     async changePassword(body, user) {
         const userId = user?._id ?? user?.id;
-        return this.authService.changePassword(userId ? String(userId) : undefined, body?.currentPassword, body?.newPassword, user?.mfaSetupPending === true, body?.source ?? user?.requestSource);
+        return this.authService.changePassword(userId ? String(userId) : undefined, body?.currentPassword, body?.newPassword, user?.mfaSetupPending === true, body?.source ?? user?.requestSource, user?.mfaVerified === true);
     }
     async verifyResetPassword(body) {
         return this.authService.verifyPasswordReset(body.email, body.token);

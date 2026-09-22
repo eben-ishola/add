@@ -48,6 +48,7 @@ export declare class StaffController {
     getStaffById(staffId: string): Promise<any>;
     resetPassword(id: string, body: {
         newPassword?: string;
+        delivery?: 'email' | 'temporary';
     }, actingUser: any): Promise<{
         emailed: boolean;
         expiresAt: string;

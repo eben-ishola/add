@@ -37,8 +37,8 @@ let StaffService = class StaffService {
     async updateUploadedStaff(createStaffDto, options) {
         return this.userOnboardingService.updateUploadedStaff(createStaffDto, options);
     }
-    async resetPassword(userId, preferredPassword, actingUserId) {
-        return this.userCredentialService.resetPassword(userId, preferredPassword, actingUserId);
+    async resetPassword(userId, preferredPassword, actingUserId, delivery) {
+        return this.userCredentialService.resetPassword(userId, preferredPassword, actingUserId, delivery);
     }
     async updateStaff(createStaffDto) {
         return this.userOnboardingService.updateStaff(createStaffDto);

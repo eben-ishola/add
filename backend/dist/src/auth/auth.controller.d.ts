@@ -62,8 +62,8 @@ export declare class AuthController {
         mfaSetupRequired: boolean;
     } | {
         message: string;
-        accessToken?: undefined;
-        access_token?: undefined;
+        accessToken: string;
+        access_token: string;
         mfaSetupRequired?: undefined;
     }>;
     verifyResetPassword(body: VerifyPasswordResetDto): Promise<{

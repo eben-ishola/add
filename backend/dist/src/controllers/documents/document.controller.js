@@ -21,7 +21,7 @@ const path_1 = require("path");
 const fs = require("fs");
 const jwt_auth_guard_1 = require("../../auth/guards/jwt-auth.guard");
 const document_library_service_1 = require("../../services/documents/document-library.service");
-const SCANNED_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
+const SCANNED_DOCUMENT_MAX_BYTES = 30 * 1024 * 1024;
 const isPdfUpload = (file) => file?.mimetype === 'application/pdf' ||
     (0, path_1.extname)(file?.originalname ?? '').toLowerCase() === '.pdf';
 let DocumentLibraryController = DocumentLibraryController_1 = class DocumentLibraryController {
