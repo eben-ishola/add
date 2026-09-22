@@ -1,0 +1,81 @@
+import { Document } from 'mongoose';
+import * as mongoose from 'mongoose';
+import { EmployeeInformation } from './employeeInformation.schema';
+export declare class User extends Document {
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    branch: mongoose.Schema.Types.ObjectId;
+    additionalBranch?: mongoose.Schema.Types.ObjectId[];
+    allowMultiBranch?: boolean;
+    department: mongoose.Schema.Types.ObjectId;
+    password: string;
+    businessUnit: mongoose.Schema.Types.ObjectId;
+    entity: mongoose.Schema.Types.ObjectId;
+    entityViewer?: mongoose.Schema.Types.ObjectId[];
+    level: mongoose.Schema.Types.ObjectId;
+    previousLevel?: mongoose.Schema.Types.ObjectId | null;
+    levelChangedAt?: Date | null;
+    transportLevel?: string;
+    inconvenienceLevel?: string;
+    role?: mongoose.Schema.Types.ObjectId | null;
+    startDate?: Date;
+    exitDate?: Date;
+    addosserAccount?: string;
+    atlasAccount?: string;
+    aftaAccount?: string;
+    additionalAfta?: number;
+    addToGross?: number;
+    staffId?: string;
+    email?: string;
+    status: string;
+    orbitID?: string;
+    dateOfBirth?: Date;
+    phoneNumber?: string;
+    confirmed: string;
+    employeeInformation?: EmployeeInformation;
+    createdBy?: mongoose.Schema.Types.ObjectId;
+    supervisorId?: mongoose.Schema.Types.ObjectId;
+    supervisor2Id?: mongoose.Schema.Types.ObjectId;
+    hodApproval?: mongoose.Schema.Types.ObjectId;
+    itApproval?: mongoose.Schema.Types.ObjectId;
+    auditApproval?: mongoose.Schema.Types.ObjectId;
+    supervisorStatus?: string;
+    auditStatus?: string;
+    itStatus?: string;
+    hrStatus?: string;
+    workflowStage?: string;
+    workflowType?: string;
+    requiresHrApproval?: boolean;
+    pendingChanges?: Record<string, any> | null;
+    workflowUpdatedAt?: Date;
+    rent?: string;
+    rentStartDate?: Date;
+    rentEndDate?: Date;
+    passwordResetToken?: string | null;
+    passwordResetExpires?: Date | null;
+    passwordResetRequestedAt?: Date | null;
+    passwordResetRequestedBy?: mongoose.Schema.Types.ObjectId | null;
+    additionalRoles?: Array<{
+        role: mongoose.Schema.Types.ObjectId;
+        entity?: mongoose.Schema.Types.ObjectId | null;
+    }>;
+    assignedApps?: string[];
+    mfaEnabled?: boolean;
+    mfaRequired?: boolean;
+    mfaExempt?: boolean;
+    totpSecret?: string | null;
+    mfaBackupCodes?: string[];
+    mfaSetupAt?: Date | null;
+    mfaVerifiedAt?: Date | null;
+}
+export type UserDocument = User & Document;
+export declare const UserSchema: mongoose.Schema<User, mongoose.Model<User, any, any, any, Document<unknown, any, User, any, {}> & User & Required<{
+    _id: unknown;
+}> & {
+    __v: number;
+}, any>, {}, {}, {}, {}, mongoose.DefaultSchemaOptions, User, Document<unknown, {}, mongoose.FlatRecord<User>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<User> & Required<{
+    _id: unknown;
+}> & {
+    __v: number;
+}>;

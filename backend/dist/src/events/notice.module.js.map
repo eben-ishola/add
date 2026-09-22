@@ -1,0 +1,1 @@
+{"version":3,"file":"notice.module.js","sourceRoot":"","sources":["../../../src/events/notice.module.ts"],"names":[],"mappings":";;;;;;;;;AAAA,2CAAwC;AACxC,qDAAiD;AAM1C,IAAM,mBAAmB,GAAzB,MAAM,mBAAmB;CAAG,CAAA;AAAtB,kDAAmB;8BAAnB,mBAAmB;IAJ/B,IAAA,eAAM,EAAC;QACN,SAAS,EAAE,CAAC,8BAAa,CAAC;QAC1B,OAAO,EAAE,CAAC,8BAAa,CAAC;KACzB,CAAC;GACW,mBAAmB,CAAG"}

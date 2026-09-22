@@ -1,0 +1,9 @@
+export declare const parsePayrollPerformanceScore: (raw: any) => number | null;
+export declare const extractPayrollEmployeeIdFromRow: (row: any) => string | null;
+export declare const collectPayrollAttendanceIdentifiers: (row: any) => string[];
+export declare const mergePayrollAttendanceAliasSets: (aliasMap: Map<string, Set<string>>, values: Array<string | null | undefined>) => void;
+export declare const expandPayrollAttendanceIdentifiers: (identifiers: string[], aliasMap?: Map<string, Set<string>>) => string[];
+export declare const resolvePayrollAttendanceSummaryForRow: <T>(attendanceSummary: Map<string, T>, row: any) => T | undefined;
+export declare const hasPayrollLateAttendancePenalty: (deductionIds: Set<string>, row: any) => boolean;
+export declare const normalizePayrollHolidayDate: (value: any) => string | null;
+export declare const normalizePayrollHolidayList: (source: any) => string[];

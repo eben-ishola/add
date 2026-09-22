@@ -1,0 +1,10 @@
+export declare const formatPayrollDisplayMonthLabel: (value?: Date | string | null) => string;
+export declare const resolvePayrollApprovalMonthLabel: (approval: any) => string;
+export declare const getPayrollPortalBaseUrl: (env?: Record<string, string | undefined>) => string;
+export declare const buildPayrollPortalUrl: (path: string, env?: Record<string, string | undefined>) => string;
+export declare const normalizePayrollEmail: (value: any) => string | null;
+export declare const collectPayrollParticipantIds: (approval: any) => string[];
+export declare const computePayrollSectionTotals: (rows: any[]) => Record<string, Record<string, number>>;
+export declare const composePayrollUserName: (user: any) => string | undefined;
+export declare const resolvePayrollEntityLabel: (entityRef: any) => string | undefined;
+export declare const resolvePayrollStaffLabel: (directory: Map<string, string>, value: any) => string | undefined;

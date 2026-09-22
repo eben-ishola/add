@@ -1,0 +1,31 @@
+import { Model } from 'mongoose';
+import { ProcessedPayroll } from 'src/schemas/processedPayroll.schema';
+import { PayslipApproval } from 'src/schemas/payslipApproval.schema';
+import { PayrollWorkflowConfig } from 'src/schemas/payroll-workflow.schema';
+import { StaffService } from 'src/services/user/user.service';
+import { NoticeService } from 'src/services/comms/notice.service';
+import { SubsidiaryService } from 'src/services/org/subsidiary.service';
+import { PayrollWorkflowConfigService } from 'src/services/payroll/payroll-workflow-config.service';
+export declare class PayrollPayslipApprovalService {
+    private readonly processedPayrollModel;
+    private readonly payslipApprovalModel;
+    private readonly payrollWorkflowModel;
+    private readonly staffService;
+    private readonly noticeService;
+    private readonly entityService;
+    private readonly payrollWorkflowConfigService?;
+    constructor(processedPayrollModel: Model<ProcessedPayroll>, payslipApprovalModel: Model<PayslipApproval>, payrollWorkflowModel: Model<PayrollWorkflowConfig>, staffService: StaffService, noticeService: NoticeService, entityService: SubsidiaryService, payrollWorkflowConfigService?: PayrollWorkflowConfigService);
+    private hasFinanceScope;
+    private userHasSuperAdminRole;
+    private normalizeEntityIdStrict;
+    private loadPayrollWorkflowConfig;
+    private buildPayslipStaffQuery;
+    private buildPayslipPeriodQuery;
+    private buildProcessedPayrollEntityMatch;
+    private updateProcessedPayrollPayslipApproval;
+    requestPayslipApproval(payload: any, requester: any): Promise<any>;
+    getPayslipApprovals(user: any, status?: string, entity?: string): Promise<any>;
+    getPayslipApprovalById(user: any, approvalId: string): Promise<any>;
+    approvePayslipApproval(approvalId: string, user: any): Promise<any>;
+    rejectPayslipApproval(approvalId: string, user: any, reason?: string): Promise<any>;
+}

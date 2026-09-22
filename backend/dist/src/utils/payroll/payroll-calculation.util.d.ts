@@ -1,0 +1,44 @@
+export type SalaryComponentInput = {
+    basic: number;
+    housing: number;
+    transport: number;
+    dress: number;
+    utilities: number;
+    lunch: number;
+    telephone: number;
+    gross: number;
+};
+export type SalaryComponents = SalaryComponentInput;
+export declare const ensurePayrollNumber: (value: unknown, fallback?: number) => number;
+export declare const toSafePayrollNumber: (value: unknown, fallback?: number) => number;
+export declare const roundPayrollAmount: (value: number, precision?: number) => number;
+export declare const payrollPercentOf: (amount: number, percent: number) => number;
+export type PayrollSalaryBreakdownSettings = {
+    basic: number;
+    housing: number;
+    transport: number;
+    dress: number;
+    utilities: number;
+    lunch: number;
+    telephone: number;
+    pension: number;
+    companyPension: number;
+    nhf: number;
+};
+export type PayrollAnnualSalaryBreakdown = {
+    basicAmount: number;
+    housingAmount: number;
+    transportAmount: number;
+    dressAmount: number;
+    utilitiesAmount: number;
+    lunchAmount: number;
+    telephoneAmount: number;
+    pensionBase: number;
+    pensionAmount: number;
+    companyPensionAmount: number;
+    nhfAmount: number;
+};
+export declare const buildAnnualSalaryBreakdown: (amountTendered: number, settings: PayrollSalaryBreakdownSettings) => PayrollAnnualSalaryBreakdown;
+export declare const reconcileSalaryComponents: (components: SalaryComponentInput) => SalaryComponents;
+export declare const normalizePayrollPercent: (value: unknown, fallback?: number) => number;
+export declare const resolveEffectiveRentValue: (user?: Record<string, any> | null, asOf?: Date) => number;

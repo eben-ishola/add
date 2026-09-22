@@ -1,0 +1,5 @@
+staffId,firstName,lastName,middleName,email,phoneNumber,department,businessUnit,branch,entity,level,startDate,exitDate,dateOfBirth,addosserAccount,atlasAccount,aftaAccount,status,orbitID,confirmed,supervisor,payeAccount,nhf,pensionAccount,pensionProvider
+AMFB/2023/1001,Jane,Doe,,jane.doe@example.com,08031234567,Finance,Business Operations,Lagos Main,AIL,ASS 9B,2023-01-15,,1991-05-20,122334455,6677889900,4455667788,Active,9001,TRUE,STF2001,110011,12345678901,9876543210,PFA ABC
+AMFB/2023/STF1002,John,Smith,Alade,john.smith@example.com,08039876543,IT,Technology,Abuja Central,AIL,ASS 6C,2022-07-10,,1990-09-05,223344556,7788990011,5566778899,Active,9002,FALSE,STF2002,220022,23456789012,8765432109,PFA DEF
+AMFB/2023/STF1003,Amina,Bello,,amina.bello@example.com,08036781234,Human Resources,People & Culture,Port Harcourt,AIL, ASS 11A,2021-03-01,,1988-12-12,334455667,8899001122,6677889900,Active,,FALSE,,330033,34567890123,7654321098,PFA GHI
+
