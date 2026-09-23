@@ -4,6 +4,7 @@ import { PayrollApproval } from 'src/schemas/payrollApproval.schema';
 import { StaffService } from 'src/services/user/user.service';
 import { SubsidiaryService } from 'src/services/org/subsidiary.service';
 import { WorkflowNotifier } from 'src/services/comms/workflow-notifier.service';
+import { ExitService } from 'src/services/employee-lifecycle/exit.service';
 export type PayrollRunHandlers = {
     getTemplates: (payload: any, type: any, entity: any, periodInput?: any) => Promise<any>;
     normalizeEntityIdStrict: (value: any) => Promise<string>;
@@ -66,7 +67,8 @@ export declare class PayrollRunService {
     private readonly payrollApprovalModel;
     private readonly leaveAllowanceApprovalModel;
     private readonly workflowNotifier?;
-    constructor(staffService: StaffService, entityService: SubsidiaryService, payrollApprovalModel: Model<PayrollApproval>, leaveAllowanceApprovalModel: Model<LeaveAllowanceApproval>, workflowNotifier?: WorkflowNotifier);
+    private readonly exitService?;
+    constructor(staffService: StaffService, entityService: SubsidiaryService, payrollApprovalModel: Model<PayrollApproval>, leaveAllowanceApprovalModel: Model<LeaveAllowanceApproval>, workflowNotifier?: WorkflowNotifier, exitService?: ExitService);
     generatePayroll(payload: any, initiatorOrHandlers: any, maybeHandlers?: PayrollRunHandlers): Promise<any>;
     processPayroll(payload: any, initiator: any, handlers: PayrollRunHandlers): Promise<any>;
     previewPayroll(payload: any, initiator: any, handlers: PayrollRunHandlers): Promise<any>;

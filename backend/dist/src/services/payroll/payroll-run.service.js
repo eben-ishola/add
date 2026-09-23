@@ -22,16 +22,18 @@ const payrollApproval_schema_1 = require("../../schemas/payrollApproval.schema")
 const user_service_1 = require("../user/user.service");
 const subsidiary_service_1 = require("../org/subsidiary.service");
 const workflow_notifier_service_1 = require("../comms/workflow-notifier.service");
+const exit_service_1 = require("../employee-lifecycle/exit.service");
 const PAYROLL_APPROVAL_STATUS = {
     PENDING_REVIEW: 'PENDING_REVIEW',
 };
 let PayrollRunService = class PayrollRunService {
-    constructor(staffService, entityService, payrollApprovalModel, leaveAllowanceApprovalModel, workflowNotifier) {
+    constructor(staffService, entityService, payrollApprovalModel, leaveAllowanceApprovalModel, workflowNotifier, exitService) {
         this.staffService = staffService;
         this.entityService = entityService;
         this.payrollApprovalModel = payrollApprovalModel;
         this.leaveAllowanceApprovalModel = leaveAllowanceApprovalModel;
         this.workflowNotifier = workflowNotifier;
+        this.exitService = exitService;
     }
     async generatePayroll(payload, initiatorOrHandlers, maybeHandlers) {
         const handlers = maybeHandlers ?? initiatorOrHandlers;
@@ -66,6 +68,12 @@ let PayrollRunService = class PayrollRunService {
             const hydrated = await handlers.hydratePayrollRowIdentifiers(proratedData, normalizedEntityId);
             if (hydrated.changed) {
                 proratedData = hydrated.rows;
+            }
+            if (workflowType === 'payroll' && this.exitService) {
+                proratedData = await this.exitService.applyExitPayouts(proratedData, {
+                    entity: normalizedEntityId,
+                    runDate: new Date(),
+                });
             }
             const types = [...new Set(proratedData.map((item) => item.type))];
             const batchId = (0, uuid_1.v4)();
@@ -258,10 +266,12 @@ exports.PayrollRunService = PayrollRunService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(payrollApproval_schema_1.PayrollApproval.name)),
     __param(3, (0, mongoose_1.InjectModel)(leave_allowance_approval_schema_1.LeaveAllowanceApproval.name)),
     __param(4, (0, common_1.Optional)()),
+    __param(5, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [user_service_1.StaffService,
         subsidiary_service_1.SubsidiaryService,
         mongoose_2.Model,
         mongoose_2.Model,
-        workflow_notifier_service_1.WorkflowNotifier])
+        workflow_notifier_service_1.WorkflowNotifier,
+        exit_service_1.ExitService])
 ], PayrollRunService);
 //# sourceMappingURL=payroll-run.service.js.map
