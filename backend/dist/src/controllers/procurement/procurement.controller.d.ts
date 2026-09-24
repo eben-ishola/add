@@ -10,7 +10,7 @@ export declare class ProcurementController {
         status: number;
         data: any;
     }>;
-    counts(user: any, entity?: string, mine?: string): Promise<{
+    counts(user: any, entity?: string, mine?: string, unit?: string, needsAction?: string): Promise<{
         status: number;
         data: {
             byStatus: Record<string, number>;
@@ -19,7 +19,7 @@ export declare class ProcurementController {
         };
         role: import("src/services/procurement/procurement.service").ProcurementWorkflowRole;
     }>;
-    list(user: any, entity?: string, status?: string, mine?: string, needsAction?: string, search?: string, page?: string, limit?: string): Promise<{
+    list(user: any, entity?: string, status?: string, mine?: string, unit?: string, needsAction?: string, search?: string, page?: string, limit?: string): Promise<{
         status: number;
         data: any;
         role: import("src/services/procurement/procurement.service").ProcurementWorkflowRole;

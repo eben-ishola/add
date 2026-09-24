@@ -1,6 +1,6 @@
 import { Document, Types } from 'mongoose';
 export type ExitClearanceStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type ClearanceItemStatus = 'PENDING' | 'RETURNED' | 'NOT_APPLICABLE';
+export type ClearanceItemStatus = 'PENDING' | 'COMPLETED' | 'RETURNED' | 'NOT_APPLICABLE';
 export type ClearanceSectionStatus = 'PENDING' | 'COMPLETED' | 'NOT_APPLICABLE';
 export declare const CLEARANCE_ITEM_STATUSES: ClearanceItemStatus[];
 export declare const CLEARANCE_SECTION_STATUSES: ClearanceSectionStatus[];

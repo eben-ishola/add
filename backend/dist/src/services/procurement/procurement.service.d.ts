@@ -174,6 +174,7 @@ export declare class ProcurementService {
         entity?: string;
         status?: string;
         mine?: string;
+        unit?: string;
         needsAction?: string;
         search?: string;
         page?: string | number;
@@ -192,6 +193,8 @@ export declare class ProcurementService {
     countRequisitionsByStatus(filters: {
         entity?: string;
         mine?: string;
+        unit?: string;
+        needsAction?: string;
         search?: string;
     }, user: any): Promise<{
         status: number;

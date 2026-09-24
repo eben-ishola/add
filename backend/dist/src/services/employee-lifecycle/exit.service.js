@@ -686,8 +686,20 @@ let ExitService = class ExitService {
                 : null;
             section.completedByName = actor.name;
             section.completedAt = new Date();
+            if (sectionKey === 'LINE_MANAGER') {
+                const handoverNote = (clearance.items ?? []).find((item) => this.text(item?.key) === 'HANDOVER_NOTE');
+                if (handoverNote) {
+                    handoverNote.status = 'COMPLETED';
+                    handoverNote.confirmedBy = mongoose_2.Types.ObjectId.isValid(actor.id)
+                        ? new mongoose_2.Types.ObjectId(actor.id)
+                        : null;
+                    handoverNote.confirmedByName = actor.name;
+                    handoverNote.confirmedAt = new Date();
+                }
+            }
         }
         clearance.markModified('sections');
+        clearance.markModified('items');
         await clearance.save();
         return this.mapClearance(clearance.toObject(), access);
     }
@@ -704,8 +716,8 @@ let ExitService = class ExitService {
         if (!item)
             throw new common_1.NotFoundException('That clearance item does not exist.');
         const status = this.text(payload?.status).toUpperCase();
-        if (!['PENDING', 'RETURNED', 'NOT_APPLICABLE'].includes(status)) {
-            throw new common_1.BadRequestException('Item status must be PENDING, RETURNED or NOT_APPLICABLE.');
+        if (!['PENDING', 'COMPLETED', 'NOT_APPLICABLE'].includes(status)) {
+            throw new common_1.BadRequestException('Item status must be PENDING, COMPLETED or NOT_APPLICABLE.');
         }
         const access = await this.resolveAccess(user, actor);
         access.userId = this.text(user?._id ?? user?.id);

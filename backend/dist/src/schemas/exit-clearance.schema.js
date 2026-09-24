@@ -14,6 +14,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 exports.CLEARANCE_ITEM_STATUSES = [
     'PENDING',
+    'COMPLETED',
     'RETURNED',
     'NOT_APPLICABLE',
 ];

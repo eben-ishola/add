@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmtpConfigSchema = exports.SmtpConfig = exports.MAIL_PROVIDER_PRESETS = exports.MAIL_PROVIDERS = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
-exports.MAIL_PROVIDERS = ['smtp', 'sendgrid', 'brevo'];
+exports.MAIL_PROVIDERS = ['smtp', 'sendgrid', 'sendgrid_api', 'brevo'];
 exports.MAIL_PROVIDER_PRESETS = {
     smtp: null,
     sendgrid: {
@@ -20,6 +20,11 @@ exports.MAIL_PROVIDER_PRESETS = {
         port: 587,
         username: 'apikey',
         usernameLabel: 'Fixed by SendGrid',
+        secretLabel: 'SendGrid API key',
+    },
+    sendgrid_api: {
+        label: 'Twilio SendGrid API',
+        usernameLabel: 'Not used by the Mail Send API',
         secretLabel: 'SendGrid API key',
     },
     brevo: {

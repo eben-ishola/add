@@ -55,11 +55,11 @@ let ProcurementController = class ProcurementController {
     create(user, body) {
         return this.procurementService.createRequisition(body, user);
     }
-    counts(user, entity, mine) {
-        return this.procurementService.countRequisitionsByStatus({ entity, mine }, user);
+    counts(user, entity, mine, unit, needsAction) {
+        return this.procurementService.countRequisitionsByStatus({ entity, mine, unit, needsAction }, user);
     }
-    list(user, entity, status, mine, needsAction, search, page, limit) {
-        return this.procurementService.listRequisitions({ entity, status, mine, needsAction, search, page, limit }, user);
+    list(user, entity, status, mine, unit, needsAction, search, page, limit) {
+        return this.procurementService.listRequisitions({ entity, status, mine, unit, needsAction, search, page, limit }, user);
     }
     getOne(user, id) {
         return this.procurementService.getRequisition(id, user);
@@ -204,8 +204,10 @@ __decorate([
     __param(0, (0, user_decorator_1.UserOne)()),
     __param(1, (0, common_1.Query)('entity')),
     __param(2, (0, common_1.Query)('mine')),
+    __param(3, (0, common_1.Query)('unit')),
+    __param(4, (0, common_1.Query)('needsAction')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ProcurementController.prototype, "counts", null);
 __decorate([
@@ -214,12 +216,13 @@ __decorate([
     __param(1, (0, common_1.Query)('entity')),
     __param(2, (0, common_1.Query)('status')),
     __param(3, (0, common_1.Query)('mine')),
-    __param(4, (0, common_1.Query)('needsAction')),
-    __param(5, (0, common_1.Query)('search')),
-    __param(6, (0, common_1.Query)('page')),
-    __param(7, (0, common_1.Query)('limit')),
+    __param(4, (0, common_1.Query)('unit')),
+    __param(5, (0, common_1.Query)('needsAction')),
+    __param(6, (0, common_1.Query)('search')),
+    __param(7, (0, common_1.Query)('page')),
+    __param(8, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ProcurementController.prototype, "list", null);
 __decorate([

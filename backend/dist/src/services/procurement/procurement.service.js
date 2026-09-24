@@ -859,26 +859,24 @@ let ProcurementService = class ProcurementService {
         const and = [];
         const needsAction = String(filters?.needsAction ?? '').toLowerCase() === 'true';
         const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
+        const wantsUnit = String(filters?.unit ?? '').toLowerCase() === 'true';
         let entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
         if (!entityId && !role.isSuperAdmin) {
             entityId = this.optionalObjectId(user?.entity);
         }
-        if (entityId && !needsAction && !wantsOwn)
+        if (entityId && !needsAction && !wantsOwn && !wantsUnit)
             query.entity = entityId;
         if (filters?.status)
             query.status = filters.status;
         const userId = this.optionalObjectId(user?._id ?? user?.id);
         const departmentId = this.userDepartmentId(user);
         if (wantsOwn) {
-            const own = [
-                { requestedBy: userId },
-                { assignedApprover: userId },
-            ];
-            if (departmentId)
-                own.push({ resolvingDepartment: departmentId });
-            and.push({ $or: own });
+            and.push({ requestedBy: userId });
         }
-        else if (!role.canViewAll) {
+        else if (wantsUnit) {
+            and.push(departmentId ? { resolvingDepartment: departmentId } : { _id: null });
+        }
+        else if (!needsAction && !role.canViewAll) {
             const visible = [
                 { requestedBy: userId },
                 { assignedApprover: userId },
@@ -941,28 +939,28 @@ let ProcurementService = class ProcurementService {
         const role = await this.resolveWorkflowRole(user, filters?.entity);
         const query = {};
         const and = [];
+        const needsAction = String(filters?.needsAction ?? '').toLowerCase() === 'true';
+        const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
+        const wantsUnit = String(filters?.unit ?? '').toLowerCase() === 'true';
         const entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
-        if (entityId)
-            query.entity = entityId;
-        else if (!role.isSuperAdmin) {
-            const own = this.optionalObjectId(user?.entity);
-            if (own)
-                query.entity = own;
+        if (!needsAction && !wantsOwn && !wantsUnit) {
+            if (entityId)
+                query.entity = entityId;
+            else if (!role.isSuperAdmin) {
+                const own = this.optionalObjectId(user?.entity);
+                if (own)
+                    query.entity = own;
+            }
         }
         const userId = this.optionalObjectId(user?._id ?? user?.id);
         const departmentId = this.userDepartmentId(user);
-        const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
         if (wantsOwn) {
-            delete query.entity;
-            const own = [
-                { requestedBy: userId },
-                { assignedApprover: userId },
-            ];
-            if (departmentId)
-                own.push({ resolvingDepartment: departmentId });
-            and.push({ $or: own });
+            and.push({ requestedBy: userId });
         }
-        else if (!role.canViewAll) {
+        else if (wantsUnit) {
+            and.push(departmentId ? { resolvingDepartment: departmentId } : { _id: null });
+        }
+        else if (!needsAction && !role.canViewAll) {
             const visible = [
                 { requestedBy: userId },
                 { assignedApprover: userId },
@@ -971,9 +969,20 @@ let ProcurementService = class ProcurementService {
                 visible.push({ resolvingDepartment: departmentId });
             and.push({ $or: visible });
         }
+        if (needsAction) {
+            const clauses = this.buildNeedsActionClause(role, userId, departmentId);
+            and.push(clauses.length
+                ? {
+                    $and: [
+                        { status: { $nin: ['COMPLETED', 'REJECTED'] } },
+                        { $or: clauses },
+                    ],
+                }
+                : { _id: null });
+        }
         if (and.length)
             query.$and = and;
-        const [rows, needsAction] = await Promise.all([
+        const [rows, needsActionCount] = await Promise.all([
             this.requisitionModel
                 .aggregate([{ $match: query }, { $group: { _id: '$status', count: { $sum: 1 } } }])
                 .exec(),
@@ -981,12 +990,9 @@ let ProcurementService = class ProcurementService {
                 const clauses = this.buildNeedsActionClause(role, userId, departmentId);
                 if (!clauses.length)
                     return 0;
-                const { entity: _scopedEntity, ...unscoped } = query;
                 return this.requisitionModel
                     .countDocuments({
-                    ...unscoped,
                     $and: [
-                        ...(query.$and ?? []),
                         { status: { $nin: ['COMPLETED', 'REJECTED'] } },
                         { $or: clauses },
                     ],
@@ -1001,7 +1007,7 @@ let ProcurementService = class ProcurementService {
             byStatus[String(row?._id ?? '')] = count;
             total += count;
         });
-        return { status: 200, data: { byStatus, total, needsAction }, role };
+        return { status: 200, data: { byStatus, total, needsAction: needsActionCount }, role };
     }
     async getRequisition(id, user) {
         const requisitionId = this.toObjectId(id, 'requisition id');

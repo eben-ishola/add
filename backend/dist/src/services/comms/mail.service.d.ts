@@ -36,6 +36,9 @@ export declare class MailService {
     private resolveTemplate;
     private buildTransportConfig;
     private resolveTransporter;
+    private resolveSendGridApiConfig;
+    private sendWithSendGridApi;
+    private logSendError;
     send(options: MailTemplateOptions): Promise<{
         success: boolean;
         message: string;

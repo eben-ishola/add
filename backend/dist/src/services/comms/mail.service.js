@@ -14,11 +14,14 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailService = void 0;
 const common_1 = require("@nestjs/common");
+const axios_1 = require("axios");
+const promises_1 = require("fs/promises");
 const nodemailer = require("nodemailer");
 const smtp_config_service_1 = require("./smtp-config.service");
 const smtp_config_schema_1 = require("../../schemas/smtp-config.schema");
 const email_templates_1 = require("../../utils/shared/email-templates");
 const IMPLICIT_TLS_PORT = 465;
+const SENDGRID_MAIL_SEND_URL = 'https://api.sendgrid.com/v3/mail/send';
 let MailService = class MailService {
     constructor(smtpConfigService) {
         this.smtpConfigService = smtpConfigService;
@@ -247,6 +250,55 @@ let MailService = class MailService {
         }
         return { transporter: this.transporter, from: resolved.from, layout };
     }
+    resolveSendGridApiConfig(config) {
+        const layout = this.resolveLayoutConfig(config);
+        const apiKey = typeof config?.password === 'string' ? config.password.trim() : '';
+        const fromEmail = typeof config?.fromEmail === 'string' ? config.fromEmail.trim() : '';
+        const fromName = typeof config?.fromName === 'string' ? config.fromName.trim() : '';
+        if (config?.enabled === false || !apiKey || !fromEmail) {
+            return { disabled: true, layout };
+        }
+        return { apiKey, fromEmail, fromName: fromName || undefined, layout };
+    }
+    async sendWithSendGridApi(config, message, attachments) {
+        const content = [
+            ...(message.text ? [{ type: 'text/plain', value: message.text }] : []),
+            ...(message.html ? [{ type: 'text/html', value: message.html }] : []),
+        ];
+        const encodedAttachments = attachments?.length
+            ? await Promise.all(attachments.map(async (attachment) => ({
+                filename: attachment.filename,
+                content: (await (0, promises_1.readFile)(attachment.path)).toString('base64'),
+                disposition: 'attachment',
+            })))
+            : undefined;
+        const response = await axios_1.default.post(SENDGRID_MAIL_SEND_URL, {
+            personalizations: [{ to: [{ email: message.to }] }],
+            from: { email: config.fromEmail, ...(config.fromName ? { name: config.fromName } : {}) },
+            subject: message.subject,
+            content,
+            ...(encodedAttachments ? { attachments: encodedAttachments } : {}),
+        }, {
+            headers: {
+                Authorization: `Bearer ${config.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            validateStatus: (status) => status >= 200 && status < 300,
+        });
+        console.log('Email sent through SendGrid API: ' + response.status);
+        return response.data;
+    }
+    logSendError(error) {
+        if (axios_1.default.isAxiosError(error)) {
+            console.error('Error sending email:', {
+                message: error.message,
+                status: error.response?.status,
+                response: error.response?.data,
+            });
+            return;
+        }
+        console.error('Error sending email:', error);
+    }
     async send(options) {
         return this.sendMail(options);
     }
@@ -255,10 +307,6 @@ let MailService = class MailService {
             const to = typeof options.to === 'string' ? options.to.trim() : '';
             if (!to) {
                 return { success: false, message: 'Recipient email is required.' };
-            }
-            const resolved = await this.resolveTransporter();
-            if (resolved?.disabled || !resolved?.transporter) {
-                return { success: false, message: 'Email sending is disabled.' };
             }
             let subject;
             let text;
@@ -280,6 +328,25 @@ let MailService = class MailService {
             if (!text && !html) {
                 return { success: false, message: 'Email body is required.' };
             }
+            const config = await this.smtpConfigService?.getConfig({ includeSecrets: true });
+            if (config?.provider === 'sendgrid_api') {
+                const sendGrid = this.resolveSendGridApiConfig(config);
+                if ('disabled' in sendGrid) {
+                    return { success: false, message: 'Email sending is disabled.' };
+                }
+                const body = this.applyLayout(text, html, sendGrid.layout);
+                const info = await this.sendWithSendGridApi(sendGrid, {
+                    to,
+                    subject,
+                    text: body.text,
+                    html: body.html ?? body.text,
+                });
+                return { success: true, message: 'Email sent successfully', info };
+            }
+            const resolved = await this.resolveTransporter();
+            if (resolved?.disabled || !resolved?.transporter) {
+                return { success: false, message: 'Email sending is disabled.' };
+            }
             const body = this.applyLayout(text, html, resolved.layout ?? {});
             const mailOptions = {
                 from: resolved.from,
@@ -293,7 +360,7 @@ let MailService = class MailService {
             return { success: true, message: 'Email sent successfully', info };
         }
         catch (error) {
-            console.error('Error sending email:', error);
+            this.logSendError(error);
             return { success: false, message: 'Error sending email', error };
         }
     }
@@ -314,6 +381,21 @@ let MailService = class MailService {
             ],
         };
         try {
+            const config = await this.smtpConfigService?.getConfig({ includeSecrets: true });
+            if (config?.provider === 'sendgrid_api') {
+                const sendGrid = this.resolveSendGridApiConfig(config);
+                if ('disabled' in sendGrid) {
+                    return { success: false, message: 'Email sending is disabled.' };
+                }
+                const body = this.applyLayout(mailOptions.text, undefined, sendGrid.layout);
+                const info = await this.sendWithSendGridApi(sendGrid, {
+                    to,
+                    subject: mailOptions.subject,
+                    text: body.text,
+                    html: body.html ?? body.text,
+                }, [{ filename: fileName, path: filePath }]);
+                return { success: true, message: 'Email sent successfully', info };
+            }
             const resolved = await this.resolveTransporter();
             if (resolved?.disabled || !resolved?.transporter) {
                 return { success: false, message: 'Email sending is disabled.' };
@@ -327,7 +409,7 @@ let MailService = class MailService {
             return { success: true, message: 'Email sent successfully', info };
         }
         catch (error) {
-            console.error('Error sending email:', error);
+            this.logSendError(error);
             return { success: false, message: 'Error sending email', error };
         }
     }

@@ -1,11 +1,11 @@
 import { Document } from 'mongoose';
 export type SmtpConfigDocument = SmtpConfig & Document;
-export type MailProvider = 'smtp' | 'sendgrid' | 'brevo';
+export type MailProvider = 'smtp' | 'sendgrid' | 'sendgrid_api' | 'brevo';
 export declare const MAIL_PROVIDERS: MailProvider[];
 export type MailProviderPreset = {
     label: string;
-    host: string;
-    port: number;
+    host?: string;
+    port?: number;
     username?: string;
     usernameLabel: string;
     secretLabel: string;
