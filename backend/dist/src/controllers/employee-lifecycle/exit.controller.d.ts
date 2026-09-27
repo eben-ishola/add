@@ -3,12 +3,21 @@ export declare class ExitController {
     private readonly exitService;
     constructor(exitService: ExitService);
     private actor;
+    private hrAwareActor;
     access(user: any): Promise<{
         isHr: boolean;
         isStageMember: boolean;
         isLineManager: boolean;
         canSeeClearance: boolean;
-        stages: any;
+        stages: any[];
+        leaverOnly: boolean;
+    } | {
+        isHr: boolean;
+        isStageMember: boolean;
+        isLineManager: boolean;
+        canSeeClearance: boolean;
+        stages: string[];
+        leaverOnly?: undefined;
     }>;
     listMine(user: any): Promise<({
         id: string;
@@ -208,6 +217,8 @@ export declare class ExitController {
     getMyClearance(user: any): Promise<{
         data: {
             id: string;
+            canClose: boolean;
+            canSignItems: any;
             staffName: string;
             staffId: string;
             designation: string;
@@ -221,6 +232,8 @@ export declare class ExitController {
     }>;
     getClearance(id: string, user: any): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;
@@ -233,6 +246,8 @@ export declare class ExitController {
     }>;
     saveSection(id: string, key: string, body: any, user: any): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;
@@ -245,6 +260,8 @@ export declare class ExitController {
     }>;
     setItemStatus(id: string, key: string, body: any, user: any): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;

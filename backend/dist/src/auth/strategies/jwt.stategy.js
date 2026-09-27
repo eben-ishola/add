@@ -22,6 +22,7 @@ const supervisor_util_1 = require("../../utils/user/supervisor.util");
 const additional_roles_util_1 = require("../../utils/user/additional-roles.util");
 const config_1 = require("../../config");
 const request_source_1 = require("../request-source");
+const exit_clearance_status_1 = require("../exit-clearance-status");
 const exit_clearance_schema_1 = require("../../schemas/exit-clearance.schema");
 const user_cache_1 = require("../user-cache");
 const readAccessScope = (payload) => {
@@ -67,14 +68,11 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         }
         if (accessScope === 'exit-clearance') {
             const staffId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
-            const open = staffId && mongoose_1.Types.ObjectId.isValid(staffId)
-                ? await this.clearanceModel
-                    .findOne({ staff: new mongoose_1.Types.ObjectId(staffId), status: 'IN_PROGRESS' })
-                    .select('_id')
-                    .lean()
-                    .exec()
-                : null;
-            if (!open) {
+            if (!staffId || !mongoose_1.Types.ObjectId.isValid(staffId)) {
+                throw new common_1.UnauthorizedException('Invalid authentication scope. Sign in again.');
+            }
+            const status = await (0, exit_clearance_status_1.latestClearanceStatus)(this.clearanceModel, staffId);
+            if ((0, exit_clearance_status_1.exitClearanceClosed)(status)) {
                 throw new common_1.UnauthorizedException('Your exit clearance is complete. This account is closed.');
             }
         }

@@ -27,7 +27,7 @@ __decorate([
     __metadata("design:type", String)
 ], ExitRequestHistoryEntry.prototype, "action", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequestHistoryEntry.prototype, "actor", void 0);
 __decorate([
@@ -58,7 +58,7 @@ __decorate([
     __metadata("design:type", String)
 ], ExitHandoverAttachment.prototype, "storedName", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitHandoverAttachment.prototype, "uploadedBy", void 0);
 __decorate([
@@ -73,7 +73,7 @@ let ExitRequest = class ExitRequest {
 };
 exports.ExitRequest = ExitRequest;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "staff", void 0);
 __decorate([
@@ -85,19 +85,19 @@ __decorate([
     __metadata("design:type", String)
 ], ExitRequest.prototype, "staffId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Subsidiary', default: null, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Subsidiary', default: null, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "entity", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Department', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Department', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "department", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Branch', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Branch', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "branch", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "lineManager", void 0);
 __decorate([
@@ -134,7 +134,7 @@ __decorate([
     __metadata("design:type", Date)
 ], ExitRequest.prototype, "submittedAt", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitRequest.prototype, "decidedBy", void 0);
 __decorate([

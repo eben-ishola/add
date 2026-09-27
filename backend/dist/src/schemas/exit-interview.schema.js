@@ -43,11 +43,11 @@ let ExitInterview = class ExitInterview {
 };
 exports.ExitInterview = ExitInterview;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'ExitRequest', required: true, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'ExitRequest', required: true, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitInterview.prototype, "exitRequest", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitInterview.prototype, "staff", void 0);
 __decorate([

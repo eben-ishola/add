@@ -10,6 +10,13 @@ export declare const DEFAULT_RESOLVING_DEPARTMENTS: string[];
 export declare const DEFAULT_FINANCE_DEPARTMENTS: string[];
 export declare const DEFAULT_RECEIPT_GRACE_DAYS = 7;
 export declare const buildOverdueReceiptQuery: (now?: Date) => Record<string, any>;
+export type ProcurementRoleEntities = {
+    reviewer: string[];
+    approver: string[];
+    posting: string[];
+    disbursement: string[];
+    auditViewer: string[];
+};
 export type ProcurementWorkflowRole = {
     isReviewer: boolean;
     isApproverCandidate: boolean;
@@ -18,6 +25,7 @@ export type ProcurementWorkflowRole = {
     isAuditViewer: boolean;
     isSuperAdmin: boolean;
     canViewAll: boolean;
+    entities: ProcurementRoleEntities;
 };
 export declare class ProcurementService {
     private readonly requisitionModel;
@@ -155,7 +163,13 @@ export declare class ProcurementService {
     private commitBudget;
     private settleBudget;
     private releaseBudget;
+    private namesOnStage;
     private matchesStage;
+    private workflowsNaming;
+    private roleFrom;
+    private roleIn;
+    private entityIds;
+    private viewableEntityIds;
     resolveWorkflowRole(user: any, entity?: string): Promise<ProcurementWorkflowRole>;
     private assertStage;
     private appendHistory;
@@ -170,6 +184,7 @@ export declare class ProcurementService {
     private populate;
     private userDepartmentId;
     private buildNeedsActionClause;
+    private scopeClauses;
     listRequisitions(filters: {
         entity?: string;
         status?: string;

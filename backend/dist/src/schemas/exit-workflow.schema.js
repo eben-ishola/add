@@ -36,11 +36,11 @@ __decorate([
     __metadata("design:type", Number)
 ], ExitWorkflowStage.prototype, "order", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [mongoose_2.Types.ObjectId], ref: 'User', default: [] }),
+    (0, mongoose_1.Prop)({ type: [mongoose_2.SchemaTypes.ObjectId], ref: 'User', default: [] }),
     __metadata("design:type", Array)
 ], ExitWorkflowStage.prototype, "userIds", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [mongoose_2.Types.ObjectId], ref: 'Department', default: [] }),
+    (0, mongoose_1.Prop)({ type: [mongoose_2.SchemaTypes.ObjectId], ref: 'Department', default: [] }),
     __metadata("design:type", Array)
 ], ExitWorkflowStage.prototype, "departmentIds", void 0);
 exports.ExitWorkflowStage = ExitWorkflowStage = __decorate([
@@ -51,7 +51,7 @@ let ExitWorkflowConfig = class ExitWorkflowConfig {
 };
 exports.ExitWorkflowConfig = ExitWorkflowConfig;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Subsidiary', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Subsidiary', required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitWorkflowConfig.prototype, "entity", void 0);
 __decorate([
@@ -59,11 +59,11 @@ __decorate([
     __metadata("design:type", Array)
 ], ExitWorkflowConfig.prototype, "stages", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [mongoose_2.Types.ObjectId], ref: 'User', default: [] }),
+    (0, mongoose_1.Prop)({ type: [mongoose_2.SchemaTypes.ObjectId], ref: 'User', default: [] }),
     __metadata("design:type", Array)
 ], ExitWorkflowConfig.prototype, "hrIds", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitWorkflowConfig.prototype, "updatedBy", void 0);
 exports.ExitWorkflowConfig = ExitWorkflowConfig = __decorate([

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildPayrollCalloverComparison = exports.buildAccountTotals = exports.extractPayrollAmount = exports.extractPayrollAccount = exports.extractCalloverAmount = exports.extractCalloverAccount = exports.parsePayrollAmount = exports.normalizePayrollAccount = void 0;
+exports.fetchCalloverRows = exports.buildCalloverNarrationPattern = exports.calloverExitNames = exports.buildPayrollCalloverComparison = exports.buildAccountTotals = exports.extractPayrollAmount = exports.extractPayrollAccount = exports.extractCalloverAmount = exports.extractCalloverAccount = exports.parsePayrollAmount = exports.normalizePayrollAccount = void 0;
 const CALLOVER_TOLERANCE = 0.01;
 const normalizePayrollAccount = (value) => {
     if (value === null || value === undefined)
@@ -216,4 +216,38 @@ const buildPayrollCalloverComparison = (calloverRows, payrollRows, typeOverride)
     return { comparison, summary };
 };
 exports.buildPayrollCalloverComparison = buildPayrollCalloverComparison;
+const escapeOracleRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const flexibleWords = (value) => String(value ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(escapeOracleRegex)
+    .join(' +');
+const calloverExitNames = (rows) => Array.from(new Set((Array.isArray(rows) ? rows : [])
+    .filter((row) => row?.exitRedirected === true)
+    .map((row) => String(row?.name ?? row?.staffName ?? row?.fullName ?? '')
+    .trim()
+    .toUpperCase())
+    .filter(Boolean)));
+exports.calloverExitNames = calloverExitNames;
+const buildCalloverNarrationPattern = (narration, exitNames = []) => {
+    const normal = flexibleWords(narration);
+    if (!normal)
+        return '';
+    const names = exitNames.map(flexibleWords).filter(Boolean);
+    const prefix = names.length ? `(${names.map((name) => `${name} +`).join('|')})?` : '';
+    return `^${prefix}${normal}$`;
+};
+exports.buildCalloverNarrationPattern = buildCalloverNarrationPattern;
+const fetchCalloverRows = async (narration, payrollRows, fetchCallover) => {
+    const plain = String(narration ?? '').trim();
+    const pattern = (0, exports.buildCalloverNarrationPattern)(plain, (0, exports.calloverExitNames)(payrollRows));
+    if (!pattern)
+        return (await fetchCallover(plain))?.data ?? [];
+    const matched = (await fetchCallover(pattern))?.data ?? [];
+    if (matched.length)
+        return matched;
+    return (await fetchCallover(plain))?.data ?? [];
+};
+exports.fetchCalloverRows = fetchCalloverRows;
 //# sourceMappingURL=payroll-callover.util.js.map

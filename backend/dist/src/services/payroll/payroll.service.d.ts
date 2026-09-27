@@ -52,6 +52,37 @@ export declare class PayrollService {
     constructor(payrollModel: Model<Payroll>, processedPayrollModel: Model<ProcessedPayroll>, payrollApprovalModel: Model<PayrollApproval>, leaveAllowanceApprovalModel: Model<LeaveAllowanceApproval>, entityService: SubsidiaryService, staffService: StaffService, noticeService: NoticeService, workflowNotifier: WorkflowNotifier, payrollTaxService: PayrollTaxService, payrollNotificationService: PayrollNotificationService, payrollMappingService: PayrollMappingService, payrollPerformanceService: PayrollPerformanceService, payrollExportService: PayrollExportService, payrollPayslipApprovalService: PayrollPayslipApprovalService, payrollApprovalEnrichmentService: PayrollApprovalEnrichmentService, payrollWorkflowConfigService: PayrollWorkflowConfigService, payrollApprovalTransitionService: PayrollApprovalTransitionService, payrollProcessedPersistenceService: PayrollProcessedPersistenceService, payrollRunService: PayrollRunService, payrollAttendanceService: PayrollAttendanceService, payrollRowDisplayService: PayrollRowDisplayService, payrollIdentifierHydrationService: PayrollIdentifierHydrationService, payrollApprovalReadService: PayrollApprovalReadService, payrollGrossAdjustmentService?: PayrollGrossAdjustmentService);
     private static readonly SUPER_ADMIN_ROLE_NAMES;
     private resolveCalloverPayrollRows;
+    private hasCalloverContext;
+    salaryCallover(narration: string, payload: {
+        approvalId?: string;
+        batchId?: string;
+        entity?: string;
+        month?: string;
+        type?: string;
+    }, fetchCallover: (narration: string) => Promise<{
+        data?: any[];
+    } | undefined>): Promise<{
+        status: number;
+        data: any[];
+        comparison: any[];
+        summary: {
+            calloverCount: number;
+            payrollCount: number;
+            matched: number;
+            mismatched: number;
+            missing: number;
+            unexpected: number;
+            hasIssues: boolean;
+            comparisonSkipped: boolean;
+        };
+        payrollCount?: undefined;
+    } | {
+        status: number;
+        data: any[];
+        payrollCount: number;
+        comparison: import("src/utils/payroll/payroll-callover.util").PayrollCalloverComparisonRow[];
+        summary: import("src/utils/payroll/payroll-callover.util").PayrollCalloverComparisonSummary;
+    }>;
     compareCalloverWithPayroll(calloverRows: any[], payload: {
         approvalId?: string;
         batchId?: string;
@@ -80,6 +111,7 @@ export declare class PayrollService {
         comparison: import("src/utils/payroll/payroll-callover.util").PayrollCalloverComparisonRow[];
         summary: import("src/utils/payroll/payroll-callover.util").PayrollCalloverComparisonSummary;
     }>;
+    private buildCalloverResponse;
     private static readonly APPROVER_VIEW_STATUSES;
     private static readonly REVIEWER_VIEW_STATUSES;
     private static readonly POSTER_VIEW_STATUSES;

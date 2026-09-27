@@ -134,10 +134,23 @@ let PayrollService = PayrollService_1 = class PayrollService {
         }
         return [];
     }
-    async compareCalloverWithPayroll(calloverRows, payload) {
-        const hasContext = Boolean(payload?.approvalId) ||
+    hasCalloverContext(payload) {
+        return (Boolean(payload?.approvalId) ||
             Boolean(payload?.batchId) ||
-            (Boolean(payload?.entity) && Boolean(payload?.month));
+            (Boolean(payload?.entity) && Boolean(payload?.month)));
+    }
+    async salaryCallover(narration, payload, fetchCallover) {
+        const hasContext = this.hasCalloverContext(payload);
+        const payrollRows = hasContext ? await this.resolveCalloverPayrollRows(payload) : [];
+        const calloverRows = await (0, payroll_callover_util_1.fetchCalloverRows)(narration, payrollRows, fetchCallover);
+        return this.buildCalloverResponse(calloverRows, payrollRows, payload, hasContext);
+    }
+    async compareCalloverWithPayroll(calloverRows, payload) {
+        const hasContext = this.hasCalloverContext(payload);
+        const payrollRows = hasContext ? await this.resolveCalloverPayrollRows(payload) : [];
+        return this.buildCalloverResponse(calloverRows, payrollRows, payload, hasContext);
+    }
+    buildCalloverResponse(calloverRows, payrollRows, payload, hasContext) {
         if (!hasContext) {
             return {
                 status: 200,
@@ -155,7 +168,6 @@ let PayrollService = PayrollService_1 = class PayrollService {
                 },
             };
         }
-        const payrollRows = await this.resolveCalloverPayrollRows(payload);
         if (!payrollRows.length) {
             return {
                 status: 200,

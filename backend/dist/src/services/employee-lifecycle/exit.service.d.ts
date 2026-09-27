@@ -10,6 +10,7 @@ export type ExitActor = {
     name: string;
     isHr: boolean;
     isSuperAdmin: boolean;
+    leaverOnly?: boolean;
 };
 export declare class ExitService {
     private readonly requestModel;
@@ -177,6 +178,8 @@ export declare class ExitService {
     getMyClearance(actor: ExitActor): Promise<{
         data: {
             id: string;
+            canClose: boolean;
+            canSignItems: any;
             staffName: string;
             staffId: string;
             designation: string;
@@ -188,12 +191,26 @@ export declare class ExitService {
             sections: any;
         };
     }>;
+    isWorkflowHr(user: any): Promise<boolean>;
+    private stageKeysOn;
+    private canonicalUnit;
+    private sectionKeysForItem;
+    private canSignItem;
+    private workflowsNaming;
     resolveAccess(user: any, actor: ExitActor): Promise<{
         isHr: boolean;
         isStageMember: boolean;
         isLineManager: boolean;
         canSeeClearance: boolean;
-        stages: any;
+        stages: any[];
+        leaverOnly: boolean;
+    } | {
+        isHr: boolean;
+        isStageMember: boolean;
+        isLineManager: boolean;
+        canSeeClearance: boolean;
+        stages: string[];
+        leaverOnly?: undefined;
     }>;
     stageKeyFrom(label: string, taken: Set<string>): string;
     getWorkflowConfig(entity: string, actor: ExitActor): Promise<{
@@ -210,10 +227,13 @@ export declare class ExitService {
             __v: number;
         };
     }>;
+    private isOwnClearance;
     private mapClearance;
     private canEditSection;
     getClearance(id: string, user: any, actor: ExitActor): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;
@@ -230,6 +250,8 @@ export declare class ExitService {
         complete?: boolean;
     }, user: any, actor: ExitActor): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;
@@ -245,6 +267,8 @@ export declare class ExitService {
         comment?: string;
     }, user: any, actor: ExitActor): Promise<{
         id: string;
+        canClose: boolean;
+        canSignItems: any;
         staffName: string;
         staffId: string;
         designation: string;
@@ -293,6 +317,7 @@ export declare class ExitService {
     }>;
     private blankInterview;
     private mapInterview;
+    private interviewRequestFor;
     getMyInterview(actor: ExitActor): Promise<{
         id: string;
         exitRequestId: string;

@@ -43,24 +43,32 @@ let ExitController = class ExitController {
             .filter(Boolean)
             .join(' ')
             .trim();
+        const leaverOnly = user?.accessScope === 'exit-clearance';
         return {
             id: String(user?._id ?? user?.id ?? ''),
             name: name || String(user?.email ?? 'Unnamed staff'),
-            isHr: (0, access_control_util_1.userIsSuperAdmin)(user) || (0, access_control_util_1.userHasPermission)(user, HR_PERMISSIONS),
-            isSuperAdmin: (0, access_control_util_1.userIsSuperAdmin)(user),
+            isHr: !leaverOnly && ((0, access_control_util_1.userIsSuperAdmin)(user) || (0, access_control_util_1.userHasPermission)(user, HR_PERMISSIONS)),
+            isSuperAdmin: !leaverOnly && (0, access_control_util_1.userIsSuperAdmin)(user),
+            leaverOnly,
         };
     }
-    access(user) {
-        return this.exitService.resolveAccess(user, this.actor(user));
+    async hrAwareActor(user) {
+        const actor = this.actor(user);
+        if (actor.isHr || actor.leaverOnly)
+            return actor;
+        return { ...actor, isHr: await this.exitService.isWorkflowHr(user) };
+    }
+    async access(user) {
+        return this.exitService.resolveAccess(user, await this.hrAwareActor(user));
     }
     listMine(user) {
         return this.exitService.listMine(this.actor(user));
     }
-    list(user, status, search) {
-        return this.exitService.list({ status, search }, this.actor(user));
+    async list(user, status, search) {
+        return this.exitService.list({ status, search }, await this.hrAwareActor(user));
     }
-    getOne(id, user) {
-        return this.exitService.getOne(id, this.actor(user));
+    async getOne(id, user) {
+        return this.exitService.getOne(id, await this.hrAwareActor(user));
     }
     getWorkflowConfig(user, entity) {
         return this.exitService.getWorkflowConfig(entity, this.actor(user));
@@ -80,26 +88,26 @@ let ExitController = class ExitController {
     saveMyInterview(body, user) {
         return this.exitService.saveMyInterview(body, this.actor(user));
     }
-    getInterviewFor(id, user) {
-        return this.exitService.getInterviewFor(id, this.actor(user));
+    async getInterviewFor(id, user) {
+        return this.exitService.getInterviewFor(id, await this.hrAwareActor(user));
     }
     getMyClearance(user) {
         return this.exitService.getMyClearance(this.actor(user));
     }
-    getClearance(id, user) {
-        return this.exitService.getClearance(id, user, this.actor(user));
+    async getClearance(id, user) {
+        return this.exitService.getClearance(id, user, await this.hrAwareActor(user));
     }
-    saveSection(id, key, body, user) {
-        return this.exitService.saveSection(id, key, body, user, this.actor(user));
+    async saveSection(id, key, body, user) {
+        return this.exitService.saveSection(id, key, body, user, await this.hrAwareActor(user));
     }
-    setItemStatus(id, key, body, user) {
-        return this.exitService.setItemStatus(id, key, body, user, this.actor(user));
+    async setItemStatus(id, key, body, user) {
+        return this.exitService.setItemStatus(id, key, body, user, await this.hrAwareActor(user));
     }
-    completeClearance(id, user) {
-        return this.exitService.completeClearance(id, this.actor(user));
+    async completeClearance(id, user) {
+        return this.exitService.completeClearance(id, await this.hrAwareActor(user));
     }
-    listClearances(user) {
-        return this.exitService.listClearances(this.actor(user), user);
+    async listClearances(user) {
+        return this.exitService.listClearances(await this.hrAwareActor(user), user);
     }
 };
 exports.ExitController = ExitController;
@@ -108,7 +116,7 @@ __decorate([
     __param(0, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "access", null);
 __decorate([
     (0, common_1.Get)('requests/mine'),
@@ -124,7 +132,7 @@ __decorate([
     __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "list", null);
 __decorate([
     (0, common_1.Get)('requests/:id'),
@@ -132,7 +140,7 @@ __decorate([
     __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "getOne", null);
 __decorate([
     (0, common_1.Get)('workflow-config'),
@@ -187,7 +195,7 @@ __decorate([
     __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "getInterviewFor", null);
 __decorate([
     (0, common_1.Get)('clearances/mine'),
@@ -202,7 +210,7 @@ __decorate([
     __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "getClearance", null);
 __decorate([
     (0, common_1.Post)('clearances/:id/sections/:key'),
@@ -212,7 +220,7 @@ __decorate([
     __param(3, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "saveSection", null);
 __decorate([
     (0, common_1.Post)('clearances/:id/items/:key'),
@@ -222,7 +230,7 @@ __decorate([
     __param(3, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "setItemStatus", null);
 __decorate([
     (0, common_1.Post)('clearances/:id/complete'),
@@ -230,14 +238,14 @@ __decorate([
     __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "completeClearance", null);
 __decorate([
     (0, common_1.Get)('clearances'),
     __param(0, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ExitController.prototype, "listClearances", null);
 exports.ExitController = ExitController = __decorate([
     (0, common_1.Controller)('exit'),

@@ -62,6 +62,18 @@ const buildOverdueReceiptQuery = (now = new Date()) => {
     };
 };
 exports.buildOverdueReceiptQuery = buildOverdueReceiptQuery;
+const STAGE_USER_FIELD = {
+    reviewer: 'reviewerIds',
+    approver: 'approverPoolIds',
+    posting: 'postingIds',
+    disbursement: 'disbursementIds',
+};
+const STAGE_DEPARTMENT_FIELD = {
+    reviewer: 'reviewerDepartments',
+    approver: 'approverDepartments',
+    posting: 'postingDepartments',
+    disbursement: 'disbursementDepartments',
+};
 let ProcurementService = class ProcurementService {
     constructor(requisitionModel, workflowModel, userModel, expenseModel, budgetModel, departmentModel, notifier) {
         this.requisitionModel = requisitionModel;
@@ -543,6 +555,11 @@ let ProcurementService = class ProcurementService {
             throw new common_1.ForbiddenException('Only finance can export the posting batch.');
         }
         const query = {};
+        if (!role.isSuperAdmin) {
+            query.entity = {
+                $in: this.entityIds(role.entities.posting, role.entities.disbursement, role.entities.auditViewer),
+            };
+        }
         const ids = String(filters?.ids ?? '')
             .split(',')
             .map((value) => value.trim())
@@ -551,9 +568,11 @@ let ProcurementService = class ProcurementService {
             query._id = { $in: ids.map((value) => new mongoose_2.Types.ObjectId(value)) };
         }
         else {
-            const entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
-            if (entityId)
-                query.entity = entityId;
+            if (role.isSuperAdmin) {
+                const entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
+                if (entityId)
+                    query.entity = entityId;
+            }
             query.status = filters?.status || 'PENDING_DISBURSEMENT';
         }
         const requisitions = await this.requisitionModel
@@ -638,32 +657,23 @@ let ProcurementService = class ProcurementService {
             .exec();
         requisition.committedAmount = 0;
     }
-    matchesStage(user, config, stage) {
+    namesOnStage(user, config, stage) {
         const userId = this.idString(user?._id ?? user?.id);
         const departmentId = this.idString(user?.department?._id ?? user?.department);
-        const departmentName = this.normalizeName(user?.department?.name ?? user?.department);
-        const idField = {
-            reviewer: 'reviewerIds',
-            approver: 'approverPoolIds',
-            posting: 'postingIds',
-            disbursement: 'disbursementIds',
-        }[stage];
-        const deptField = {
-            reviewer: 'reviewerDepartments',
-            approver: 'approverDepartments',
-            posting: 'postingDepartments',
-            disbursement: 'disbursementDepartments',
-        }[stage];
-        const namedUsers = config?.[idField] ?? [];
+        const namedUsers = config?.[STAGE_USER_FIELD[stage]] ?? [];
         if (userId && namedUsers.some((entry) => this.idString(entry) === userId)) {
             return true;
         }
-        const namedDepartments = config?.[deptField] ?? [];
-        if (departmentId &&
-            namedDepartments.some((entry) => this.idString(entry) === departmentId)) {
+        const namedDepartments = config?.[STAGE_DEPARTMENT_FIELD[stage]] ?? [];
+        return (Boolean(departmentId) &&
+            namedDepartments.some((entry) => this.idString(entry) === departmentId));
+    }
+    matchesStage(user, config, stage) {
+        if (this.namesOnStage(user, config, stage))
             return true;
-        }
-        const configured = namedUsers.length > 0 || namedDepartments.length > 0;
+        const departmentName = this.normalizeName(user?.department?.name ?? user?.department);
+        const configured = (config?.[STAGE_USER_FIELD[stage]] ?? []).length > 0 ||
+            (config?.[STAGE_DEPARTMENT_FIELD[stage]] ?? []).length > 0;
         if (configured || !departmentName)
             return false;
         if (stage === 'reviewer') {
@@ -674,25 +684,95 @@ let ProcurementService = class ProcurementService {
         }
         return false;
     }
-    async resolveWorkflowRole(user, entity) {
-        const entityId = this.optionalObjectId(entity ?? user?.entity);
-        const config = entityId
-            ? await this.workflowModel.findOne({ entity: entityId }).lean().exec()
-            : null;
-        const isSuperAdmin = (0, access_control_util_1.userIsSuperAdmin)(user);
-        const userId = this.idString(user?._id ?? user?.id);
-        const isAuditViewer = (config?.auditViewerIds ?? []).some((entry) => this.idString(entry) === userId);
-        const isReviewer = this.matchesStage(user, config, 'reviewer');
-        const isPoster = this.matchesStage(user, config, 'posting');
+    async workflowsNaming(user) {
+        const userId = this.optionalObjectId(user?._id ?? user?.id);
+        const departmentId = this.userDepartmentId(user);
+        const clauses = [];
+        if (userId) {
+            [...Object.values(STAGE_USER_FIELD), 'auditViewerIds'].forEach((field) => clauses.push({ [field]: userId }));
+        }
+        if (departmentId) {
+            Object.values(STAGE_DEPARTMENT_FIELD).forEach((field) => clauses.push({ [field]: departmentId }));
+        }
+        if (!clauses.length)
+            return [];
+        const configs = await this.workflowModel.find({ $or: clauses }).lean().exec();
+        return Array.isArray(configs) ? configs : [];
+    }
+    roleFrom(entities, isSuperAdmin) {
+        const isReviewer = entities.reviewer.length > 0;
+        const isPoster = entities.posting.length > 0;
+        const isAuditViewer = entities.auditViewer.length > 0;
         return {
             isReviewer,
-            isApproverCandidate: this.matchesStage(user, config, 'approver'),
+            isApproverCandidate: entities.approver.length > 0,
             isPoster,
-            isDisburser: this.matchesStage(user, config, 'disbursement'),
+            isDisburser: entities.disbursement.length > 0,
             isAuditViewer,
             isSuperAdmin,
             canViewAll: isSuperAdmin || isReviewer || isPoster || isAuditViewer,
+            entities,
         };
+    }
+    roleIn(role, entity) {
+        const id = this.idString(entity);
+        const only = (list) => (id && list.includes(id) ? [id] : []);
+        return this.roleFrom({
+            reviewer: only(role.entities.reviewer),
+            approver: only(role.entities.approver),
+            posting: only(role.entities.posting),
+            disbursement: only(role.entities.disbursement),
+            auditViewer: only(role.entities.auditViewer),
+        }, role.isSuperAdmin);
+    }
+    entityIds(...lists) {
+        const unique = Array.from(new Set(lists.flat()));
+        return unique
+            .map((value) => this.optionalObjectId(value))
+            .filter((value) => Boolean(value));
+    }
+    viewableEntityIds(role) {
+        return this.entityIds(role.entities.reviewer, role.entities.posting, role.entities.auditViewer);
+    }
+    async resolveWorkflowRole(user, entity) {
+        const entityId = this.optionalObjectId(user?.entity ?? entity);
+        const [config, named] = await Promise.all([
+            entityId
+                ? this.workflowModel.findOne({ entity: entityId }).lean().exec()
+                : Promise.resolve(null),
+            this.workflowsNaming(user),
+        ]);
+        const userId = this.idString(user?._id ?? user?.id);
+        const fallbackEntity = entityId ? String(entityId) : '';
+        const workflows = [
+            ...(config ? [{ ...config, entity: fallbackEntity }] : []),
+            ...named,
+        ];
+        const stageEntities = (stage) => {
+            const ids = new Set();
+            named.forEach((workflow) => {
+                if (this.namesOnStage(user, workflow, stage))
+                    ids.add(this.idString(workflow?.entity));
+            });
+            if (fallbackEntity && this.matchesStage(user, config, stage))
+                ids.add(fallbackEntity);
+            ids.delete('');
+            return Array.from(ids);
+        };
+        const auditViewer = new Set();
+        workflows.forEach((workflow) => {
+            const listed = (workflow?.auditViewerIds ?? []).some((viewer) => this.idString(viewer) === userId);
+            if (userId && listed)
+                auditViewer.add(this.idString(workflow?.entity));
+        });
+        auditViewer.delete('');
+        return this.roleFrom({
+            reviewer: stageEntities('reviewer'),
+            approver: stageEntities('approver'),
+            posting: stageEntities('posting'),
+            disbursement: stageEntities('disbursement'),
+            auditViewer: Array.from(auditViewer),
+        }, (0, access_control_util_1.userIsSuperAdmin)(user));
     }
     assertStage(requisition, expected, what) {
         if (requisition?.currentStage !== expected) {
@@ -836,66 +916,71 @@ let ProcurementService = class ProcurementService {
     }
     buildNeedsActionClause(role, userId, departmentId) {
         const clauses = [];
-        if (role?.isReviewer || role?.isSuperAdmin) {
-            clauses.push({ currentStage: 'REVIEWER' });
-        }
-        else if (departmentId) {
+        const atStage = (stage, entities) => {
+            if (role?.isSuperAdmin) {
+                clauses.push({ currentStage: stage });
+                return;
+            }
+            const ids = this.entityIds(entities ?? []);
+            if (ids.length)
+                clauses.push({ currentStage: stage, entity: { $in: ids } });
+        };
+        atStage('REVIEWER', role?.entities?.reviewer);
+        if (departmentId && !role?.isSuperAdmin) {
             clauses.push({ currentStage: 'REVIEWER', resolvingDepartment: departmentId });
         }
         if (userId) {
             clauses.push({ currentStage: 'APPROVER', assignedApprover: userId });
         }
-        if (role?.isPoster || role?.isSuperAdmin) {
-            clauses.push({ currentStage: 'POSTING' });
-        }
-        if (role?.isDisburser || role?.isSuperAdmin) {
-            clauses.push({ currentStage: 'DISBURSEMENT' });
-        }
+        atStage('POSTING', role?.entities?.posting);
+        atStage('DISBURSEMENT', role?.entities?.disbursement);
         return clauses;
+    }
+    scopeClauses(role, filters, user) {
+        const needsAction = String(filters?.needsAction ?? '').toLowerCase() === 'true';
+        const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
+        const wantsUnit = String(filters?.unit ?? '').toLowerCase() === 'true';
+        const userId = this.optionalObjectId(user?._id ?? user?.id);
+        const departmentId = this.userDepartmentId(user);
+        if (wantsOwn)
+            return [{ requestedBy: userId }];
+        if (wantsUnit) {
+            return [departmentId ? { resolvingDepartment: departmentId } : { _id: null }];
+        }
+        if (needsAction) {
+            const clauses = this.buildNeedsActionClause(role, userId, departmentId);
+            return [
+                clauses.length
+                    ? {
+                        $and: [
+                            { status: { $nin: ['COMPLETED', 'REJECTED'] } },
+                            { $or: clauses },
+                        ],
+                    }
+                    : { _id: null },
+            ];
+        }
+        if (role.isSuperAdmin) {
+            const entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
+            return entityId ? [{ entity: entityId }] : [];
+        }
+        const visible = [
+            { requestedBy: userId },
+            { assignedApprover: userId },
+        ];
+        if (departmentId)
+            visible.push({ resolvingDepartment: departmentId });
+        const viewable = this.viewableEntityIds(role);
+        if (viewable.length)
+            visible.push({ entity: { $in: viewable } });
+        return [{ $or: visible }];
     }
     async listRequisitions(filters, user) {
         const role = await this.resolveWorkflowRole(user, filters?.entity);
         const query = {};
-        const and = [];
-        const needsAction = String(filters?.needsAction ?? '').toLowerCase() === 'true';
-        const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
-        const wantsUnit = String(filters?.unit ?? '').toLowerCase() === 'true';
-        let entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
-        if (!entityId && !role.isSuperAdmin) {
-            entityId = this.optionalObjectId(user?.entity);
-        }
-        if (entityId && !needsAction && !wantsOwn && !wantsUnit)
-            query.entity = entityId;
+        const and = this.scopeClauses(role, filters, user);
         if (filters?.status)
             query.status = filters.status;
-        const userId = this.optionalObjectId(user?._id ?? user?.id);
-        const departmentId = this.userDepartmentId(user);
-        if (wantsOwn) {
-            and.push({ requestedBy: userId });
-        }
-        else if (wantsUnit) {
-            and.push(departmentId ? { resolvingDepartment: departmentId } : { _id: null });
-        }
-        else if (!needsAction && !role.canViewAll) {
-            const visible = [
-                { requestedBy: userId },
-                { assignedApprover: userId },
-            ];
-            if (departmentId)
-                visible.push({ resolvingDepartment: departmentId });
-            and.push({ $or: visible });
-        }
-        if (needsAction) {
-            const clauses = this.buildNeedsActionClause(role, userId, departmentId);
-            and.push(clauses.length
-                ? {
-                    $and: [
-                        { status: { $nin: ['COMPLETED', 'REJECTED'] } },
-                        { $or: clauses },
-                    ],
-                }
-                : { _id: null });
-        }
         const search = String(filters?.search ?? '').trim();
         if (search) {
             const pattern = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -938,50 +1023,11 @@ let ProcurementService = class ProcurementService {
     async countRequisitionsByStatus(filters, user) {
         const role = await this.resolveWorkflowRole(user, filters?.entity);
         const query = {};
-        const and = [];
-        const needsAction = String(filters?.needsAction ?? '').toLowerCase() === 'true';
-        const wantsOwn = String(filters?.mine ?? '').toLowerCase() === 'true';
-        const wantsUnit = String(filters?.unit ?? '').toLowerCase() === 'true';
-        const entityId = this.optionalObjectId(filters?.entity ?? user?.entity);
-        if (!needsAction && !wantsOwn && !wantsUnit) {
-            if (entityId)
-                query.entity = entityId;
-            else if (!role.isSuperAdmin) {
-                const own = this.optionalObjectId(user?.entity);
-                if (own)
-                    query.entity = own;
-            }
-        }
-        const userId = this.optionalObjectId(user?._id ?? user?.id);
-        const departmentId = this.userDepartmentId(user);
-        if (wantsOwn) {
-            and.push({ requestedBy: userId });
-        }
-        else if (wantsUnit) {
-            and.push(departmentId ? { resolvingDepartment: departmentId } : { _id: null });
-        }
-        else if (!needsAction && !role.canViewAll) {
-            const visible = [
-                { requestedBy: userId },
-                { assignedApprover: userId },
-            ];
-            if (departmentId)
-                visible.push({ resolvingDepartment: departmentId });
-            and.push({ $or: visible });
-        }
-        if (needsAction) {
-            const clauses = this.buildNeedsActionClause(role, userId, departmentId);
-            and.push(clauses.length
-                ? {
-                    $and: [
-                        { status: { $nin: ['COMPLETED', 'REJECTED'] } },
-                        { $or: clauses },
-                    ],
-                }
-                : { _id: null });
-        }
+        const and = this.scopeClauses(role, filters, user);
         if (and.length)
             query.$and = and;
+        const userId = this.optionalObjectId(user?._id ?? user?.id);
+        const departmentId = this.userDepartmentId(user);
         const [rows, needsActionCount] = await Promise.all([
             this.requisitionModel
                 .aggregate([{ $match: query }, { $group: { _id: '$status', count: { $sum: 1 } } }])
@@ -1016,7 +1062,7 @@ let ProcurementService = class ProcurementService {
             .exec();
         if (!requisition)
             throw new common_1.NotFoundException('Requisition not found.');
-        const role = await this.resolveWorkflowRole(user, this.idString(requisition.entity));
+        const role = this.roleIn(await this.resolveWorkflowRole(user, this.idString(requisition.entity)), requisition.entity);
         const userId = this.idString(user?._id ?? user?.id);
         const isOwn = this.idString(requisition.requestedBy) === userId;
         const isAssigned = this.idString(requisition.assignedApprover) === userId;
@@ -1308,9 +1354,14 @@ let ProcurementService = class ProcurementService {
             throw new common_1.ForbiddenException('You cannot review outstanding receipts.');
         }
         const query = (0, exports.buildOverdueReceiptQuery)();
-        const entityId = this.optionalObjectId(entity ?? user?.entity);
-        if (entityId)
-            query.entity = entityId;
+        if (role.isSuperAdmin) {
+            const entityId = this.optionalObjectId(entity ?? user?.entity);
+            if (entityId)
+                query.entity = entityId;
+        }
+        else {
+            query.entity = { $in: this.viewableEntityIds(role) };
+        }
         const data = await this.populate(this.requisitionModel.find(query).sort({ receiptDueAt: 1, disbursedAt: 1 }))
             .lean()
             .exec();

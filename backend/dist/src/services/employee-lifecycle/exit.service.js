@@ -86,6 +86,8 @@ let ExitService = class ExitService {
         return this.text(doc?.staff?._id ?? doc?.staff) === this.text(actor.id);
     }
     isLineManagerOf(doc, actor) {
+        if (actor.leaverOnly)
+            return false;
         const lineManager = this.text(doc?.lineManager?._id ?? doc?.lineManager);
         return Boolean(lineManager) && lineManager === this.text(actor.id);
     }
@@ -147,7 +149,7 @@ let ExitService = class ExitService {
         const query = {};
         if (!actor.isHr) {
             const userId = this.optionalObjectId(actor.id);
-            if (!userId) {
+            if (!userId || actor.leaverOnly) {
                 throw new common_1.ForbiddenException('Only HR can review exit requests.');
             }
             query.lineManager = userId;
@@ -461,6 +463,66 @@ let ExitService = class ExitService {
             }),
         };
     }
+    async isWorkflowHr(user) {
+        const userId = this.optionalObjectId(user?._id ?? user?.id);
+        if (!userId || !this.workflowModel)
+            return false;
+        return Boolean(await this.workflowModel.exists({ hrIds: userId }));
+    }
+    stageKeysOn(clearance, access) {
+        const mine = access?.stages ?? [];
+        return (clearance?.sections ?? [])
+            .filter((section) => section?.status !== 'NOT_APPLICABLE')
+            .map((section) => this.text(section?.key))
+            .filter((key) => mine.includes(key));
+    }
+    canonicalUnit(value) {
+        const unit = this.text(value).toLowerCase().replace(/[_\s]+/g, ' ').trim();
+        if (/\b(admin|administration|procurement|fleet)\b/.test(unit))
+            return 'admin';
+        return unit;
+    }
+    sectionKeysForItem(clearance, item) {
+        const unit = this.canonicalUnit(item?.unit);
+        if (!unit)
+            return [];
+        const templateKey = exit_clearance_schema_1.CLEARANCE_SECTIONS.find((section) => this.canonicalUnit(section.unit) === unit)?.key;
+        return (clearance?.sections ?? [])
+            .filter((section) => [section?.unit, section?.label, section?.key].some((value) => this.canonicalUnit(value) === unit) ||
+            (Boolean(templateKey) && this.text(section?.key) === templateKey))
+            .map((section) => this.text(section?.key));
+    }
+    canSignItem(clearance, item, access) {
+        if (clearance?.status !== 'IN_PROGRESS')
+            return false;
+        if (this.isOwnClearance(clearance, access?.userId))
+            return false;
+        if (access?.leaverOnly)
+            return false;
+        if (access?.isHr)
+            return true;
+        const owners = this.sectionKeysForItem(clearance, item);
+        if (owners.includes(exit_workflow_schema_1.LINE_MANAGER_STAGE_KEY) &&
+            this.text(clearance?.lineManager) === this.text(access?.userId)) {
+            return true;
+        }
+        return this.stageKeysOn(clearance, access).some((key) => owners.includes(key));
+    }
+    async workflowsNaming(user) {
+        if (!this.workflowModel)
+            return [];
+        const userId = this.optionalObjectId(user?._id ?? user?.id);
+        const departmentId = this.optionalObjectId(user?.department);
+        const clauses = [];
+        if (userId)
+            clauses.push({ 'stages.userIds': userId });
+        if (departmentId)
+            clauses.push({ 'stages.departmentIds': departmentId });
+        if (!clauses.length)
+            return [];
+        const configs = await this.workflowModel.find({ $or: clauses }).lean().exec();
+        return Array.isArray(configs) ? configs : [];
+    }
     async resolveAccess(user, actor) {
         if (actor.isHr) {
             return {
@@ -471,22 +533,32 @@ let ExitService = class ExitService {
                 stages: [],
             };
         }
-        const entityId = this.optionalObjectId(user?.entity?._id ?? user?.entity);
-        const config = entityId
-            ? await this.workflowModel?.findOne({ entity: entityId }).lean().exec()
-            : null;
+        if (actor.leaverOnly) {
+            return {
+                isHr: false,
+                isStageMember: false,
+                isLineManager: false,
+                canSeeClearance: false,
+                stages: [],
+                leaverOnly: true,
+            };
+        }
+        const configs = await this.workflowsNaming(user);
         const userId = this.text(user?._id ?? user?.id);
         const departmentId = this.text(user?.department?._id ?? user?.department);
-        const stages = (config?.stages ?? [])
+        const stageKeys = configs.flatMap((config) => (config?.stages ?? [])
             .filter((stage) => {
             const byUser = (stage?.userIds ?? []).some((id) => this.text(id) === userId);
-            const byDepartment = (stage?.departmentIds ?? []).some((id) => this.text(id) === departmentId);
+            const byDepartment = Boolean(departmentId) &&
+                (stage?.departmentIds ?? []).some((id) => this.text(id) === departmentId);
             return byUser || byDepartment;
         })
-            .map((stage) => this.text(stage?.key));
-        const managesAnExit = userId
+            .map((stage) => this.text(stage?.key)));
+        const stages = Array.from(new Set(stageKeys.filter(Boolean)));
+        const lineManagerId = this.optionalObjectId(userId);
+        const managesAnExit = lineManagerId
             ? Boolean(await this.clearanceModel
-                .findOne({ lineManager: userId, status: 'IN_PROGRESS' })
+                .findOne({ lineManager: lineManagerId })
                 .select('_id')
                 .lean()
                 .exec())
@@ -597,9 +669,29 @@ let ExitService = class ExitService {
             .exec();
         return { status: 200, data: saved };
     }
+    isOwnClearance(clearance, userId) {
+        const id = this.text(userId);
+        return Boolean(id) && this.text(clearance?.staff) === id;
+    }
     mapClearance(doc, access) {
+        const open = doc?.status === 'IN_PROGRESS' &&
+            !this.isOwnClearance(doc, access?.userId) &&
+            !access?.leaverOnly;
+        const hr = Boolean(access?.isHr);
+        const items = (doc?.items ?? []).map((item) => ({
+            key: item?.key,
+            label: item?.label,
+            unit: item?.unit,
+            status: item?.status ?? 'PENDING',
+            confirmedByName: this.text(item?.confirmedByName),
+            confirmedAt: item?.confirmedAt ? new Date(item.confirmedAt).toISOString() : null,
+            comment: this.text(item?.comment),
+            canSign: this.canSignItem(doc, item, access),
+        }));
         return {
             id: String(doc?._id ?? ''),
+            canClose: open && hr,
+            canSignItems: items.some((item) => item.canSign),
             staffName: this.text(doc?.staffName),
             staffId: this.text(doc?.staffId) || '-',
             designation: this.text(doc?.designation),
@@ -607,15 +699,7 @@ let ExitService = class ExitService {
             marketFacing: doc?.marketFacing === true,
             status: doc?.status ?? 'IN_PROGRESS',
             lineManagerId: this.text(doc?.lineManager),
-            items: (doc?.items ?? []).map((item) => ({
-                key: item?.key,
-                label: item?.label,
-                unit: item?.unit,
-                status: item?.status ?? 'PENDING',
-                confirmedByName: this.text(item?.confirmedByName),
-                confirmedAt: item?.confirmedAt ? new Date(item.confirmedAt).toISOString() : null,
-                comment: this.text(item?.comment),
-            })),
+            items,
             sections: (doc?.sections ?? []).map((section) => ({
                 key: section?.key,
                 label: section?.label,
@@ -632,12 +716,16 @@ let ExitService = class ExitService {
     canEditSection(clearance, key, access) {
         if (clearance?.status !== 'IN_PROGRESS')
             return false;
+        if (this.isOwnClearance(clearance, access?.userId))
+            return false;
+        if (access?.leaverOnly)
+            return false;
         if (access?.isHr)
             return true;
         if (key === 'LINE_MANAGER') {
             return this.text(clearance?.lineManager) === this.text(access?.userId);
         }
-        return Array.isArray(access?.stages) && access.stages.includes(key);
+        return this.stageKeysOn(clearance, access).includes(key);
     }
     async getClearance(id, user, actor) {
         const doc = await this.clearanceModel
@@ -648,9 +736,10 @@ let ExitService = class ExitService {
             throw new common_1.NotFoundException('Exit clearance not found.');
         const access = await this.resolveAccess(user, actor);
         access.userId = this.text(user?._id ?? user?.id);
-        const isLineManager = this.text(doc?.lineManager) === access.userId;
+        const isLineManager = !access.leaverOnly && this.text(doc?.lineManager) === access.userId;
         const isExitingStaff = this.text(doc?.staff) === access.userId;
-        if (!access.isHr && !access.isStageMember && !isLineManager && !isExitingStaff) {
+        const onWorkflow = access.isHr || this.stageKeysOn(doc, access).length > 0;
+        if (!onWorkflow && !isLineManager && !isExitingStaff) {
             throw new common_1.ForbiddenException('You are not part of this exit clearance.');
         }
         return this.mapClearance(doc, access);
@@ -670,6 +759,9 @@ let ExitService = class ExitService {
             throw new common_1.NotFoundException('That clearance section does not exist.');
         const access = await this.resolveAccess(user, actor);
         access.userId = this.text(user?._id ?? user?.id);
+        if (this.isOwnClearance(clearance, access.userId)) {
+            throw new common_1.ForbiddenException('You cannot sign off your own exit clearance.');
+        }
         if (!this.canEditSection(clearance, sectionKey, access)) {
             throw new common_1.ForbiddenException('Your unit does not sign this section.');
         }
@@ -721,8 +813,11 @@ let ExitService = class ExitService {
         }
         const access = await this.resolveAccess(user, actor);
         access.userId = this.text(user?._id ?? user?.id);
-        if (!access.isHr && !access.isStageMember) {
-            throw new common_1.ForbiddenException('Your unit does not sign off items.');
+        if (this.isOwnClearance(clearance, access.userId)) {
+            throw new common_1.ForbiddenException('You cannot sign off items on your own exit clearance.');
+        }
+        if (!this.canSignItem(clearance, item, access)) {
+            throw new common_1.ForbiddenException('Your unit does not sign off this item.');
         }
         item.status = status;
         item.comment = this.text(payload?.comment);
@@ -751,6 +846,9 @@ let ExitService = class ExitService {
             throw new common_1.NotFoundException('Exit clearance not found.');
         if (clearance.status !== 'IN_PROGRESS') {
             throw new common_1.ConflictException('This clearance is already closed.');
+        }
+        if (this.isOwnClearance(clearance, actor.id)) {
+            throw new common_1.ForbiddenException('You cannot close your own exit clearance.');
         }
         const outstanding = this.outstandingSections(clearance);
         if (outstanding.length) {
@@ -813,15 +911,30 @@ let ExitService = class ExitService {
             submittedAt: doc?.submittedAt ? new Date(doc.submittedAt).toISOString() : null,
         };
     }
-    async getMyInterview(actor) {
-        if (!this.interviewModel)
-            return null;
-        const staff = this.objectId(actor.id, 'Staff');
-        const request = await this.requestModel
+    async interviewRequestFor(staff) {
+        const clearance = await this.clearanceModel
+            .findOne({ staff, status: 'IN_PROGRESS' })
+            .sort({ createdAt: -1 })
+            .select('exitRequest')
+            .lean()
+            .exec();
+        const clearanceRequestId = this.optionalObjectId(clearance?.exitRequest);
+        if (clearanceRequestId) {
+            const request = await this.requestModel.findById(clearanceRequestId).lean().exec();
+            if (request)
+                return request;
+        }
+        return this.requestModel
             .findOne({ staff, status: { $in: ['PENDING', 'APPROVED'] } })
             .sort({ submittedAt: -1 })
             .lean()
             .exec();
+    }
+    async getMyInterview(actor) {
+        if (!this.interviewModel)
+            return null;
+        const staff = this.objectId(actor.id, 'Staff');
+        const request = await this.interviewRequestFor(staff);
         if (!request)
             return null;
         const existing = await this.interviewModel
@@ -837,11 +950,7 @@ let ExitService = class ExitService {
             throw new common_1.ConflictException('Exit interview storage is not available.');
         }
         const staff = this.objectId(actor.id, 'Staff');
-        const request = await this.requestModel
-            .findOne({ staff, status: { $in: ['PENDING', 'APPROVED'] } })
-            .sort({ submittedAt: -1 })
-            .lean()
-            .exec();
+        const request = await this.interviewRequestFor(staff);
         if (!request) {
             throw new common_1.ConflictException('Raise an exit request first and your interview will open alongside it.');
         }
@@ -886,13 +995,23 @@ let ExitService = class ExitService {
     async listClearances(actor, user) {
         const query = {};
         if (!actor.isHr) {
+            if (actor.leaverOnly) {
+                throw new common_1.ForbiddenException('You are not part of any exit clearance.');
+            }
             const access = await this.resolveAccess(user, actor);
             const userId = this.optionalObjectId(actor.id);
             const clauses = [];
             if (userId)
                 clauses.push({ lineManager: userId });
             if ((access?.stages ?? []).length) {
-                clauses.push({ 'sections.key': { $in: access.stages } });
+                clauses.push({
+                    sections: {
+                        $elemMatch: {
+                            key: { $in: access.stages },
+                            status: { $ne: 'NOT_APPLICABLE' },
+                        },
+                    },
+                });
             }
             if (!clauses.length) {
                 throw new common_1.ForbiddenException('You are not part of any exit clearance.');

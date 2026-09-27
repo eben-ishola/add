@@ -77,7 +77,7 @@ __decorate([
     __metadata("design:type", String)
 ], ClearanceItem.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ClearanceItem.prototype, "confirmedBy", void 0);
 __decorate([
@@ -124,7 +124,7 @@ __decorate([
     __metadata("design:type", String)
 ], ClearanceSection.prototype, "comment", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ClearanceSection.prototype, "completedBy", void 0);
 __decorate([
@@ -143,11 +143,11 @@ let ExitClearance = class ExitClearance {
 };
 exports.ExitClearance = ExitClearance;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'ExitRequest', required: true, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'ExitRequest', required: true, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "exitRequest", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', required: true, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "staff", void 0);
 __decorate([
@@ -163,19 +163,19 @@ __decorate([
     __metadata("design:type", String)
 ], ExitClearance.prototype, "designation", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Subsidiary', default: null, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Subsidiary', default: null, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "entity", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Department', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Department', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "department", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Branch', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'Branch', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "branch", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null, index: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null, index: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "lineManager", void 0);
 __decorate([
@@ -208,7 +208,7 @@ __decorate([
     __metadata("design:type", Date)
 ], ExitClearance.prototype, "completedAt", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.SchemaTypes.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ExitClearance.prototype, "completedBy", void 0);
 exports.ExitClearance = ExitClearance = __decorate([

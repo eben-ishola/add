@@ -139,7 +139,6 @@ let PayrollController = class PayrollController {
         if (!isAuditor && !isSuperAdmin) {
             throw new common_1.ForbiddenException('You do not have permission to access callover data.');
         }
-        const callover = await this.cbaService.fetchSalaryCallOver(narration ?? '');
         const comparePayload = {
             approvalId,
             batchId,
@@ -147,7 +146,7 @@ let PayrollController = class PayrollController {
             month,
             type,
         };
-        return this.payrollService.compareCalloverWithPayroll(callover?.data ?? [], comparePayload);
+        return this.payrollService.salaryCallover(narration ?? '', comparePayload, (value) => this.cbaService.fetchSalaryCallOver(value));
     }
     async updatePayrollApprovalComment(approvalId, payload, user) {
         return this.payrollService.updatePayrollApprovalComment(approvalId, user, payload);

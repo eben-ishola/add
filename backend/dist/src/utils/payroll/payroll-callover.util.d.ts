@@ -29,4 +29,9 @@ export declare const buildPayrollCalloverComparison: (calloverRows: GenericPayro
     comparison: PayrollCalloverComparisonRow[];
     summary: PayrollCalloverComparisonSummary;
 };
+export declare const calloverExitNames: (rows: GenericPayrollRow[]) => string[];
+export declare const buildCalloverNarrationPattern: (narration: string, exitNames?: string[]) => string;
+export declare const fetchCalloverRows: (narration: string, payrollRows: GenericPayrollRow[], fetchCallover: (narration: string) => Promise<{
+    data?: any[];
+} | undefined>) => Promise<any[]>;
 export {};

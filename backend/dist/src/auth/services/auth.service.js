@@ -24,6 +24,7 @@ const additional_roles_util_1 = require("../../utils/user/additional-roles.util"
 const mail_service_1 = require("../../services/comms/mail.service");
 const mfa_service_1 = require("./mfa.service");
 const mfa_trust_1 = require("../mfa-trust");
+const exit_clearance_status_1 = require("../exit-clearance-status");
 const exit_clearance_schema_1 = require("../../schemas/exit-clearance.schema");
 const request_source_1 = require("../request-source");
 const config_1 = require("../../config");
@@ -137,19 +138,8 @@ let AuthService = class AuthService {
     async hasOpenClearance(userId) {
         return (await this.latestClearanceStatus(userId)) === 'IN_PROGRESS';
     }
-    async latestClearanceStatus(userId) {
-        if (!this.clearanceModel)
-            return null;
-        const id = String(userId ?? '').trim();
-        if (!id || !mongoose_2.Types.ObjectId.isValid(id))
-            return null;
-        const clearance = await this.clearanceModel
-            .findOne({ staff: new mongoose_2.Types.ObjectId(id) })
-            .sort({ createdAt: -1 })
-            .select('status')
-            .lean()
-            .exec();
-        return clearance?.status ? String(clearance.status) : null;
+    latestClearanceStatus(userId) {
+        return (0, exit_clearance_status_1.latestClearanceStatus)(this.clearanceModel, userId);
     }
     hasExitDatePassed(user) {
         const exitDate = user?.exitDate ? new Date(user.exitDate) : null;
@@ -159,7 +149,7 @@ let AuthService = class AuthService {
     }
     async assertUserCanSignIn(user) {
         const clearanceStatus = await this.latestClearanceStatus(user?._id ?? user?.id);
-        if (clearanceStatus === 'COMPLETED') {
+        if ((0, exit_clearance_status_1.exitClearanceClosed)(clearanceStatus)) {
             throw new common_1.UnauthorizedException('Your exit clearance is complete and this account is closed. Please contact HR.');
         }
         if (!this.hasLeft(user))
