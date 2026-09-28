@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatCalendarDate = exports.parseCalendarDate = exports.startOfCalendarDayUtc = exports.APP_TIME_ZONE = void 0;
+exports.formatCalendarDate = exports.parseCalendarDate = exports.startOfCalendarDayUtc = exports.startOfNextCalendarDay = exports.APP_TIME_ZONE = void 0;
 const moment = require("moment-timezone");
 exports.APP_TIME_ZONE = 'Africa/Lagos';
 const EXCEL_DATE_MIN_SERIAL = 59;
@@ -35,6 +35,8 @@ const CALENDAR_DATE_FORMATS = [
     'MMM DD, YYYY',
     'MMMM DD, YYYY',
 ];
+const startOfNextCalendarDay = (value) => moment(value).tz(exports.APP_TIME_ZONE).add(1, 'day').startOf('day').toDate();
+exports.startOfNextCalendarDay = startOfNextCalendarDay;
 const startOfCalendarDayUtc = (value) => moment(value).tz(exports.APP_TIME_ZONE).format('YYYY-MM-DD') === 'Invalid date'
     ? value
     : moment

@@ -33,7 +33,7 @@ export declare class UserDirectoryService {
     getRecentlyExit(subsidiaryId?: string, startDate?: string, endDate?: string, supervisorScope?: string | string[]): Promise<any>;
     getStaffTurnover(subsidiaryId?: string, startDate?: string, endDate?: string): Promise<any>;
     getPaginatedStaff(quer: any, user?: any): Promise<any>;
-    deactivateExitedStaff(): Promise<any>;
+    deactivateExitedStaff(now?: Date): Promise<any>;
     getStaffByLevel(payGrade: string, subsidiaryId: string): Promise<any>;
     getStaffByBranch(branch: string): Promise<any>;
     getBirthdaysToday(): Promise<any[]>;

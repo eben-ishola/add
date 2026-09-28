@@ -994,14 +994,13 @@ let UserDirectoryService = class UserDirectoryService {
             throw new Error(`getPaginatedStaff failed: ${e.message}`);
         }
     }
-    async deactivateExitedStaff() {
-        const now = new Date();
+    async deactivateExitedStaff(now = new Date()) {
         return this.staffModel.updateMany({
             exitDate: {
                 $gte: new Date('2020-01-01'),
-                $lte: now,
+                $lt: (0, calendar_date_util_1.startOfNextCalendarDay)(now),
             },
-            status: 'Inactive',
+            status: { $ne: 'Inactive' },
         }, {
             $set: { status: 'Inactive' },
         });

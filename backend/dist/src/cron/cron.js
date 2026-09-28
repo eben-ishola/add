@@ -46,15 +46,26 @@ let CronService = class CronService {
         this.performanceService = performanceService;
         this.dispatchService = dispatchService;
     }
-    async handleCron() {
-        if (!(await this.dispatchService.claimScheduledRun('daily-maintenance')))
-            return;
+    onApplicationBootstrap() {
+        void this.deactivateExitedStaff();
+    }
+    async deactivateExitedStaff() {
         try {
             await this.staffService.deactivateExitedStaff();
         }
         catch (error) {
             console.error('Unable to deactivate exited staff', error);
         }
+    }
+    async deactivateExitedStaffAtDayStart() {
+        if (!(await this.dispatchService.claimScheduledRun('exit-deactivation')))
+            return;
+        await this.deactivateExitedStaff();
+    }
+    async handleCron() {
+        if (!(await this.dispatchService.claimScheduledRun('daily-maintenance')))
+            return;
+        await this.deactivateExitedStaff();
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(today.getDate() + 1);
@@ -147,6 +158,12 @@ let CronService = class CronService {
     }
 };
 exports.CronService = CronService;
+__decorate([
+    (0, schedule_1.Cron)('5 0 * * *', { timeZone: 'Africa/Lagos' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CronService.prototype, "deactivateExitedStaffAtDayStart", null);
 __decorate([
     (0, schedule_1.Cron)('0 22 * * *'),
     __metadata("design:type", Function),
