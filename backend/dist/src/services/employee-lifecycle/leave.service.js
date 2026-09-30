@@ -11,10 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var LeaveService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeaveService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
+const common_2 = require("@nestjs/common");
 const mongoose_2 = require("mongoose");
 const leave_schema_1 = require("../../schemas/leave.schema");
 const axios_1 = require("axios");
@@ -34,7 +36,7 @@ const schedule_1 = require("@nestjs/schedule");
 const notification_dispatch_service_1 = require("../comms/notification-dispatch.service");
 const moment = require("moment-timezone");
 const config_1 = require("../../config");
-let LeaveService = class LeaveService {
+let LeaveService = LeaveService_1 = class LeaveService {
     constructor(leaveModel, holidayModel, attendanceConfigModel, leaveMappingModel, leavePolicyModel, userModel, departmentModel, levelModel, levelCategoryModel, notificationService, staffService, noticeService, mailService, dispatchService) {
         this.leaveModel = leaveModel;
         this.holidayModel = holidayModel;
@@ -50,6 +52,32 @@ let LeaveService = class LeaveService {
         this.noticeService = noticeService;
         this.mailService = mailService;
         this.dispatchService = dispatchService;
+        this.logger = new common_2.Logger(LeaveService_1.name);
+    }
+    async onApplicationBootstrap() {
+        try {
+            const timothyAbiona = await this.userModel
+                .find({
+                firstName: { $regex: /^th?imothy$/i },
+                lastName: { $regex: /^abiona$/i },
+            })
+                .select('_id')
+                .lean();
+            const userIds = timothyAbiona.map((staff) => staff?._id).filter(Boolean);
+            if (!userIds.length) {
+                return;
+            }
+            const result = await this.leaveModel.updateMany({ hrApproval: { $in: userIds } }, {
+                $set: { hrStatus: null },
+                $unset: { hrApproval: 1, hrComment: 1, hrApprovalDate: 1 },
+            });
+            if (result.modifiedCount) {
+                this.logger.log(`Cleared Timothy Abiona as HR approver from ${result.modifiedCount} leave request(s).`);
+            }
+        }
+        catch (error) {
+            this.logger.warn(`Timothy Abiona leave-approver cleanup skipped: ${error?.message ?? error}`);
+        }
     }
     async claimScheduledRun(jobName) {
         if (!this.dispatchService)
@@ -888,43 +916,6 @@ let LeaveService = class LeaveService {
         }
         return supervisor;
     }
-    async resolveHrApprover(entity) {
-        let approver = await this.staffService.findFirstActiveByProfileKey('admin', entity);
-        if (!approver && entity) {
-            approver = await this.staffService.findFirstActiveByProfileKey('admin');
-        }
-        if (approver)
-            return approver;
-        const superAdminRoleKeywords = [
-            "hr super admin",
-            "hr-super-admin",
-            "super admin",
-            "super-admin",
-            "gmd",
-            "group-hr-director",
-            "group hr director",
-        ];
-        const leaveManagerRoleKeywords = [
-            "leave manager",
-            "leave-manager",
-            "leave attendance manager",
-            "leave-attendance-manager",
-        ];
-        const findByRole = async (keywords, targetEntity) => this.staffService.findFirstActiveByRoleNames(keywords, targetEntity);
-        approver = await findByRole(superAdminRoleKeywords, entity);
-        if (!approver && entity) {
-            approver = await findByRole(superAdminRoleKeywords);
-        }
-        if (approver)
-            return approver;
-        approver = await findByRole(leaveManagerRoleKeywords, entity);
-        if (!approver && entity) {
-            approver = await findByRole(leaveManagerRoleKeywords);
-        }
-        if (approver)
-            return approver;
-        return this.staffService.findFirstActiveByPermission("approve leave", entity);
-    }
     parseNumberOfDays(value) {
         const numeric = Number(value);
         if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -1092,13 +1083,6 @@ let LeaveService = class LeaveService {
         if (supervisorApprover) {
             leave.hodApproval = supervisorApprover._id;
             leave.hodStatus = leave.hodStatus || 'Pending';
-        }
-        if (!leave.hrApproval) {
-            const hrApprover = await this.resolveHrApprover(employee?.entity);
-            if (hrApprover) {
-                leave.hrApproval = hrApprover._id;
-                leave.hrStatus = leave.hrStatus || 'Pending';
-            }
         }
         const reliever = leave.relievingOfficer
             ? await this.staffService.getById(String(leave.relievingOfficer))
@@ -1719,10 +1703,7 @@ let LeaveService = class LeaveService {
             : null;
         const hrApprover = leave.hrApproval
             ? await this.staffService.getById(String(leave?.hrApproval)).catch(() => null)
-            : await this.resolveHrApprover(employee?.entity);
-        if (!leave?.hrApproval && hrApprover) {
-            leave.hrApproval = hrApprover?._id;
-        }
+            : null;
         const approver = approverId ? await this.staffService.getById(String(approverId)).catch(() => null) : null;
         const approverHasHrAuthority = this.hasHrApprovalAuthority(approver);
         const ensureMatch = (expected, actual) => {
@@ -2082,7 +2063,7 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], LeaveService.prototype, "notifyLeaveStart", null);
-exports.LeaveService = LeaveService = __decorate([
+exports.LeaveService = LeaveService = LeaveService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(leave_schema_1.Leave.name)),
     __param(1, (0, mongoose_1.InjectModel)(holiday_schema_1.Holiday.name)),

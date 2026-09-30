@@ -1,3 +1,4 @@
+import { OnApplicationBootstrap } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { Leave, LeaveDocument } from '../../schemas/leave.schema';
 import { HolidayDocument } from 'src/schemas/holiday.schema';
@@ -12,7 +13,7 @@ import { LevelDocument } from 'src/schemas/level.schema';
 import { LevelCategoryDocument } from 'src/schemas/level-category.schema';
 import { DepartmentDocument } from 'src/schemas/department.schema';
 import { NotificationDispatchService } from 'src/services/comms/notification-dispatch.service';
-export declare class LeaveService {
+export declare class LeaveService implements OnApplicationBootstrap {
     private leaveModel;
     private holidayModel;
     private attendanceConfigModel;
@@ -27,7 +28,9 @@ export declare class LeaveService {
     private noticeService;
     private mailService?;
     private dispatchService?;
+    private readonly logger;
     constructor(leaveModel: Model<LeaveDocument>, holidayModel: Model<HolidayDocument>, attendanceConfigModel: Model<AttendanceConfigDocument>, leaveMappingModel: Model<LeaveMappingDocument>, leavePolicyModel: Model<LeavePolicyDocument>, userModel: Model<User>, departmentModel: Model<DepartmentDocument>, levelModel: Model<LevelDocument>, levelCategoryModel: Model<LevelCategoryDocument>, notificationService: MailService, staffService: StaffService, noticeService: NoticeService, mailService?: MailService, dispatchService?: NotificationDispatchService);
+    onApplicationBootstrap(): Promise<void>;
     private claimScheduledRun;
     private requireDepartmentScope;
     private requirePolicyScope;
@@ -79,7 +82,6 @@ export declare class LeaveService {
     private serializePolicy;
     private sendEmail;
     private resolveSupervisorApprover;
-    private resolveHrApprover;
     private parseNumberOfDays;
     private sumLeaveDays;
     private assertHandoverRequirement;
