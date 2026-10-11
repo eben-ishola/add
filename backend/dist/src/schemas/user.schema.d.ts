@@ -28,6 +28,7 @@ export declare class User extends Document {
     addToGross?: number;
     staffId?: string;
     email?: string;
+    signature?: string;
     status: string;
     orbitID?: string;
     dateOfBirth?: Date;
