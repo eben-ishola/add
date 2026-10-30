@@ -13,6 +13,10 @@ type CreateCaseInput = {
     incidentDate?: string | Date;
     reviewerId?: string;
     reviewerName?: string;
+    reviewerPanel?: Array<{
+        id?: string;
+        name?: string;
+    }>;
     summary?: string;
     nextSteps?: string;
     salaryDeductionRequired?: boolean;
@@ -32,6 +36,7 @@ export declare class DisciplinaryService {
     private readonly mailService?;
     constructor(caseModel: Model<DisciplinaryCaseDocument>, staffService?: StaffService, mailService?: MailService);
     private normalizeDate;
+    private normalizeReviewerPanel;
     private normalizeEmail;
     private buildStaffDisplayName;
     private formatIncidentDate;

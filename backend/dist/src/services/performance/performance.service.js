@@ -28,9 +28,10 @@ const performance_notification_service_1 = require("./performance-notification.s
 const performance_review_service_1 = require("./performance-review.service");
 const performance_scoring_service_1 = require("./performance-scoring.service");
 const performance_workflow_config_service_1 = require("./performance-workflow-config.service");
+const performance_kpi_result_service_1 = require("./performance-kpi-result.service");
 const mongo_1 = require("../../utils/shared/mongo");
 let PerformanceService = PerformanceService_1 = class PerformanceService {
-    constructor(reviewModel, userModel, workflowModel, performanceCoreValueService, performanceCycleService, performanceKpiSnapshotService, performanceNotificationService, performanceReviewService, performanceScoringService, performanceWorkflowConfigService) {
+    constructor(reviewModel, userModel, workflowModel, performanceCoreValueService, performanceCycleService, performanceKpiSnapshotService, performanceNotificationService, performanceReviewService, performanceScoringService, performanceWorkflowConfigService, performanceKpiResultService = undefined) {
         this.reviewModel = reviewModel;
         this.userModel = userModel;
         this.workflowModel = workflowModel;
@@ -41,6 +42,7 @@ let PerformanceService = PerformanceService_1 = class PerformanceService {
         this.performanceReviewService = performanceReviewService;
         this.performanceScoringService = performanceScoringService;
         this.performanceWorkflowConfigService = performanceWorkflowConfigService;
+        this.performanceKpiResultService = performanceKpiResultService;
     }
     extractRoleNames(roleLike) {
         const names = [];
@@ -323,7 +325,7 @@ let PerformanceService = PerformanceService_1 = class PerformanceService {
         review.reviewerName = reassignment.reviewerName ?? null;
         review.reviewer2Id = reassignment.reviewer2Id ?? null;
         review.reviewer2Name = reassignment.reviewer2Name ?? null;
-        review.hrReviewerIds = reassignment.hrReviewerIds;
+        review.hrReviewerIds = [];
         review.rating = null;
         review.reviewer2Rating = null;
         review.employeeScore = null;
@@ -363,27 +365,12 @@ let PerformanceService = PerformanceService_1 = class PerformanceService {
             supervisor2IdRaw !== reviewerId
             ? supervisor2IdRaw
             : undefined;
-        const entityId = this.normalizeEntityId(profile?.entity);
-        let hrReviewerIds = [];
-        if (entityId) {
-            const workflowConfig = await this.workflowModel
-                .findOne({ entity: new mongoose_2.Types.ObjectId(entityId), enabled: true })
-                .lean()
-                .exec();
-            hrReviewerIds = this.normalizeUserIdList(workflowConfig?.hrReviewerIds);
-        }
-        if (!reviewerId && hrReviewerIds.length) {
-            reviewerId = hrReviewerIds[0];
-        }
-        if (!reviewer2Id && hrReviewerIds.length) {
-            reviewer2Id = hrReviewerIds.find((id) => id !== reviewerId);
-        }
         if (reviewer2Id && reviewer2Id === reviewerId) {
             reviewer2Id = undefined;
         }
         const reviewerName = reviewerId ? await this.resolveReviewerName(reviewerId) : undefined;
         const reviewer2Name = reviewer2Id ? await this.resolveReviewerName(reviewer2Id) : undefined;
-        return { reviewerId, reviewerName, reviewer2Id, reviewer2Name, hrReviewerIds };
+        return { reviewerId, reviewerName, reviewer2Id, reviewer2Name, hrReviewerIds: [] };
     }
     async refreshReviewsForKpi(kpiId, actor) {
         return this.performanceKpiSnapshotService.refreshReviewsForKpi(kpiId, actor);
@@ -412,16 +399,43 @@ let PerformanceService = PerformanceService_1 = class PerformanceService {
     async nudgeReviewSupervisor(id, actor) {
         return this.performanceNotificationService.nudgeReviewSupervisor(id, actor);
     }
-    async createReview(payload) {
-        return this.performanceReviewService.createReview(payload);
+    async createReview(payload, actor) {
+        return this.performanceReviewService.createReview(payload, actor);
+    }
+    async submitSelfReview(payload, actor) {
+        const review = await this.performanceReviewService.submitSelfReview(payload, actor);
+        const employeeId = String(review?.employeeId ?? '').trim();
+        const employeeName = String(review?.employeeName ?? '').trim() || undefined;
+        const period = payload.scorePeriod || String(review?.reviewStartDate ?? '');
+        try {
+            for (const score of payload.scores ?? []) {
+                if (!score?.kpiId || score.actualValue === undefined || score.actualValue === null)
+                    continue;
+                await this.performanceKpiResultService.submitManualResult({
+                    kpiId: String(score.kpiId),
+                    period,
+                    employeeId,
+                    employeeName,
+                    actualValue: String(score.actualValue),
+                }, String(actor?._id ?? actor?.id ?? actor?.userId ?? ''), actor);
+            }
+        }
+        catch (error) {
+            await this.performanceReviewService.returnReviewToEmployeeStage(String(review?._id ?? ''));
+            throw error;
+        }
+        return review;
     }
     async updateReview(id, updates, actor) {
         return this.performanceReviewService.updateReview(id, updates, actor);
     }
-    async bulkCreateFromCsv(rows) {
-        return this.performanceReviewService.bulkCreateFromCsv(rows);
+    async bulkCreateFromCsv(rows, actor) {
+        return this.performanceReviewService.bulkCreateFromCsv(rows, actor);
     }
-    async deleteReview(id) {
+    async deleteReview(id, actor) {
+        if (!this.canManagePerformanceWorkflow(actor)) {
+            throw new common_1.ForbiddenException('You do not have permission to delete a performance review.');
+        }
         return this.performanceReviewService.deleteReview(id);
     }
     async listCoreValues(user, entity) {
@@ -491,6 +505,7 @@ exports.PerformanceService = PerformanceService = PerformanceService_1 = __decor
     __param(0, (0, mongoose_1.InjectModel)(performance_review_schema_1.PerformanceReview.name)),
     __param(1, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
     __param(2, (0, mongoose_1.InjectModel)(performance_workflow_schema_1.PerformanceWorkflowConfig.name)),
+    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => performance_kpi_result_service_1.PerformanceKpiResultService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
@@ -500,6 +515,7 @@ exports.PerformanceService = PerformanceService = PerformanceService_1 = __decor
         performance_notification_service_1.PerformanceNotificationService,
         performance_review_service_1.PerformanceReviewService,
         performance_scoring_service_1.PerformanceScoringService,
-        performance_workflow_config_service_1.PerformanceWorkflowConfigService])
+        performance_workflow_config_service_1.PerformanceWorkflowConfigService,
+        performance_kpi_result_service_1.PerformanceKpiResultService])
 ], PerformanceService);
 //# sourceMappingURL=performance.service.js.map

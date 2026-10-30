@@ -85,6 +85,7 @@ export declare class LeaveService implements OnApplicationBootstrap {
     private parseNumberOfDays;
     private sumLeaveDays;
     private assertHandoverRequirement;
+    private assertExamLeaveRequirements;
     private assertNoticePeriod;
     private extractRefId;
     private resolveLevelCategoryId;
@@ -119,6 +120,7 @@ export declare class LeaveService implements OnApplicationBootstrap {
             casual: number;
             unpaid: number;
             compassionate: number;
+            exam: number;
         };
     }>;
     getLeaveSettings(): Promise<{

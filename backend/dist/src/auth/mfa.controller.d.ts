@@ -21,6 +21,16 @@ export declare class MfaController {
         secret: string;
     }>;
     confirm(user: any, body: MfaTokenDto): Promise<{
+        refreshToken: string;
+        refresh_token: string;
+        accessToken: string;
+        access_token: string;
+        backupCodes: string[];
+        mfaTrustToken: string | null;
+        mfaTrustDays: number;
+    } | {
+        refreshToken?: undefined;
+        refresh_token?: undefined;
         accessToken: string;
         access_token: string;
         backupCodes: string[];
@@ -35,12 +45,23 @@ export declare class MfaController {
         backupCodes: string[];
     }>;
     verify(body: VerifyMfaChallengeDto): Promise<{
-        accessToken: string;
-        access_token: string;
         user: any;
         default: boolean;
         mfaTrustToken: string;
         mfaTrustDays: number;
+        refreshToken: string;
+        refresh_token: string;
+        accessToken: string;
+        access_token: string;
+    } | {
+        user: any;
+        default: boolean;
+        mfaTrustToken: string;
+        mfaTrustDays: number;
+        refreshToken?: undefined;
+        refresh_token?: undefined;
+        accessToken: string;
+        access_token: string;
     }>;
     adminRequire(actor: any, userId: string): Promise<{
         status: number;

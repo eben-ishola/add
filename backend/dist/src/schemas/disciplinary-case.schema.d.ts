@@ -11,6 +11,10 @@ export declare class DisciplinaryCase {
     incidentDate?: Date;
     reviewerId?: string;
     reviewerName?: string;
+    reviewerPanel?: Array<{
+        id?: string;
+        name: string;
+    }>;
     summary?: string;
     nextSteps?: string;
     salaryDeductionRequired?: boolean;

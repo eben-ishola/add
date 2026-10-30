@@ -16,6 +16,10 @@ let TransportAllowanceApproval = class TransportAllowanceApproval extends mongoo
 };
 exports.TransportAllowanceApproval = TransportAllowanceApproval;
 __decorate([
+    (0, mongoose_1.Prop)({ type: String, required: false, trim: true }),
+    __metadata("design:type", String)
+], TransportAllowanceApproval.prototype, "batchNumber", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Subsidiary', required: true }),
     __metadata("design:type", mongoose_2.default.Types.ObjectId)
 ], TransportAllowanceApproval.prototype, "entity", void 0);
@@ -161,6 +165,7 @@ exports.TransportAllowanceApprovalSchema.index({
     status: 1,
 });
 exports.TransportAllowanceApprovalSchema.index({ status: 1, createdAt: -1 });
+exports.TransportAllowanceApprovalSchema.index({ batchNumber: 1 }, { unique: true, sparse: true });
 exports.TransportAllowanceApprovalSchema.index({ entity: 1, status: 1, createdAt: -1 });
 exports.TransportAllowanceApprovalSchema.index({ reviewerIds: 1, status: 1 });
 exports.TransportAllowanceApprovalSchema.index({ approverIds: 1, status: 1 });

@@ -28,16 +28,18 @@ const exit_clearance_status_1 = require("../exit-clearance-status");
 const exit_clearance_schema_1 = require("../../schemas/exit-clearance.schema");
 const request_source_1 = require("../request-source");
 const config_1 = require("../../config");
+const auth_session_service_1 = require("./auth-session.service");
 const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 60;
 const MFA_CHALLENGE_TTL = '5m';
 const MFA_CHALLENGE_SECRET = config_1.config.mfaChallengeSecret;
 let AuthService = class AuthService {
-    constructor(staffModel, jwtService, mailService, mfaService, clearanceModel) {
+    constructor(staffModel, jwtService, mailService, mfaService, clearanceModel, sessionService) {
         this.staffModel = staffModel;
         this.jwtService = jwtService;
         this.mailService = mailService;
         this.mfaService = mfaService;
         this.clearanceModel = clearanceModel;
+        this.sessionService = sessionService;
     }
     async validateUser(identifier, password) {
         const normalizedIdentifier = (identifier || '').trim();
@@ -159,25 +161,50 @@ let AuthService = class AuthService {
         }
         throw new common_1.UnauthorizedException('This account is no longer active. Please contact HR.');
     }
-    createAccessToken(user, mfaVerified, source) {
-        return this.jwtService.signAsync({
+    signSessionToken(payload, session) {
+        if (!session) {
+            return this.jwtService.signAsync(payload);
+        }
+        return this.jwtService.signAsync({ ...payload, sid: session.sessionId }, { expiresIn: (0, auth_session_service_1.accessTokenTtlSeconds)(session.expiresAt) });
+    }
+    createAccessToken(user, mfaVerified, source, session) {
+        return this.signSessionToken({
             sub: String(user.id ?? user._id),
             email: user.email ?? undefined,
             staffId: user.staffId ?? undefined,
             accessScope: 'full',
             mfaVerified,
             source,
-        });
+        }, session);
     }
-    createExitClearanceToken(user, source) {
-        return this.jwtService.signAsync({
+    createExitClearanceToken(user, source, session) {
+        return this.signSessionToken({
             sub: String(user.id ?? user._id),
             email: user.email ?? undefined,
             staffId: user.staffId ?? undefined,
             accessScope: 'exit-clearance',
             mfaVerified: false,
             source,
+        }, session);
+    }
+    startSession(user, accessScope, mfaVerified, source) {
+        if (!this.sessionService)
+            return Promise.resolve(null);
+        return this.sessionService.start({
+            userId: String(user.id ?? user._id),
+            accessScope,
+            mfaVerified,
+            source,
         });
+    }
+    refreshTokenFields(session) {
+        return session
+            ? { refreshToken: session.refreshToken, refresh_token: session.refreshToken }
+            : {};
+    }
+    async isMfaEffectivelyRequired(user) {
+        return Boolean(user?.mfaRequired ||
+            (this.mfaService ? await this.mfaService.isMfaEffectivelyRequired(user) : false));
     }
     createMfaSetupToken(user, source) {
         return this.jwtService.signAsync({
@@ -203,25 +230,26 @@ let AuthService = class AuthService {
         const exitOnly = await this.assertUserCanSignIn(user);
         const safeUser = this.sanitizeUser(user);
         if (exitOnly) {
-            const accessToken = await this.createExitClearanceToken(safeUser, source);
+            const session = await this.startSession(safeUser, 'exit-clearance', false, source);
+            const accessToken = await this.createExitClearanceToken(safeUser, source, session);
             return {
                 accessToken,
                 access_token: accessToken,
+                ...this.refreshTokenFields(session),
                 user: (0, request_source_1.projectUserForSource)(safeUser, source),
                 default: this.isDefaultPassword(normalizedPassword),
                 exitClearanceOnly: true,
             };
         }
-        const effectivelyRequired = user.mfaRequired ||
-            (this.mfaService
-                ? await this.mfaService.isMfaEffectivelyRequired(user)
-                : false);
+        const effectivelyRequired = await this.isMfaEffectivelyRequired(user);
         if (effectivelyRequired && user.mfaEnabled) {
             if (await this.mfaService?.isDeviceTrusted(safeUser.id, mfaTrustToken)) {
-                const accessToken = await this.createAccessToken(safeUser, true, source);
+                const session = await this.startSession(safeUser, 'full', true, source);
+                const accessToken = await this.createAccessToken(safeUser, true, source, session);
                 return {
                     accessToken,
                     access_token: accessToken,
+                    ...this.refreshTokenFields(session),
                     user: (0, request_source_1.projectUserForSource)(safeUser, source),
                     default: this.isDefaultPassword(normalizedPassword),
                     mfaTrusted: true,
@@ -251,11 +279,13 @@ let AuthService = class AuthService {
                 default: this.isDefaultPassword(normalizedPassword),
             };
         }
-        const accessToken = await this.createAccessToken(safeUser, false, source);
+        const session = await this.startSession(safeUser, 'full', false, source);
+        const accessToken = await this.createAccessToken(safeUser, false, source, session);
         const isDefault = this.isDefaultPassword(normalizedPassword);
         return {
             accessToken,
             access_token: accessToken,
+            ...this.refreshTokenFields(session),
             user: (0, request_source_1.projectUserForSource)(safeUser, source),
             default: isDefault,
         };
@@ -306,17 +336,19 @@ let AuthService = class AuthService {
         await (0, supervisor_util_1.injectSupervisorMetadata)(this.staffModel, user);
         const source = (0, request_source_1.normalizeRequestSource)(rawSource ?? payload.source);
         const safeUser = this.sanitizeUser(user);
-        const accessToken = await this.createAccessToken(safeUser, true, source);
+        const session = await this.startSession(safeUser, 'full', true, source);
+        const accessToken = await this.createAccessToken(safeUser, true, source, session);
         return {
             accessToken,
             access_token: accessToken,
+            ...this.refreshTokenFields(session),
             user: (0, request_source_1.projectUserForSource)(safeUser, source),
             default: Boolean(payload.passwordChangeRequired),
             mfaTrustToken: await this.mfaService.issueDeviceTrust(safeUser.id),
             mfaTrustDays: mfa_trust_1.MFA_TRUST_TTL_DAYS,
         };
     }
-    async issueAccessTokenAfterMfaSetup(userId, rawSource) {
+    async issueSessionAfterMfaSetup(userId, rawSource) {
         if (!userId) {
             throw new common_1.UnauthorizedException('User context is missing.');
         }
@@ -330,9 +362,59 @@ let AuthService = class AuthService {
         if (!user.mfaEnabled) {
             throw new common_1.UnauthorizedException('MFA enrollment has not been completed.');
         }
-        return this.createAccessToken(user, true, (0, request_source_1.normalizeRequestSource)(rawSource));
+        const source = (0, request_source_1.normalizeRequestSource)(rawSource);
+        const session = await this.startSession(user, 'full', true, source);
+        const accessToken = await this.createAccessToken(user, true, source, session);
+        return {
+            accessToken,
+            access_token: accessToken,
+            ...this.refreshTokenFields(session),
+        };
     }
-    async changePassword(userId, currentPassword, newPassword, mfaSetupPending = false, rawSource, mfaVerified = false) {
+    async refreshSession(refreshToken) {
+        if (!this.sessionService) {
+            throw new common_1.UnauthorizedException(auth_session_service_1.SESSION_ENDED_MESSAGE);
+        }
+        const session = await this.sessionService.rotate(refreshToken);
+        try {
+            const user = await this.staffModel
+                .findById(session.userId)
+                .select('email staffId status exitDate mfaEnabled mfaRequired mfaExempt')
+                .lean();
+            if (!user) {
+                throw new common_1.UnauthorizedException(auth_session_service_1.SESSION_ENDED_MESSAGE);
+            }
+            const exitOnly = await this.assertUserCanSignIn(user);
+            if (!exitOnly &&
+                !session.mfaVerified &&
+                (await this.isMfaEffectivelyRequired(user))) {
+                throw new common_1.UnauthorizedException('Two-factor verification is now required. Sign in again.');
+            }
+            const accessScope = exitOnly ? 'exit-clearance' : 'full';
+            if (accessScope !== session.accessScope) {
+                await this.sessionService.updateScope(session.sessionId, accessScope);
+            }
+            const source = (0, request_source_1.normalizeRequestSource)(session.source);
+            const accessToken = exitOnly
+                ? await this.createExitClearanceToken(user, source, session)
+                : await this.createAccessToken(user, session.mfaVerified, source, session);
+            return {
+                accessToken,
+                access_token: accessToken,
+                ...this.refreshTokenFields(session),
+                ...(exitOnly ? { exitClearanceOnly: true } : {}),
+            };
+        }
+        catch (error) {
+            await this.sessionService.revokeSession(session.sessionId, 'access-revoked');
+            throw error;
+        }
+    }
+    async endSession(refreshToken) {
+        await this.sessionService?.revoke(refreshToken, 'sign-out');
+        return { signedOut: true };
+    }
+    async changePassword(userId, currentPassword, newPassword, mfaSetupPending = false, rawSource, mfaVerified = false, sessionId) {
         if (!userId) {
             throw new common_1.UnauthorizedException('User context is missing.');
         }
@@ -359,6 +441,13 @@ let AuthService = class AuthService {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
         await user.save();
+        const currentSession = mfaSetupPending
+            ? null
+            : await this.sessionService?.findActive(sessionId, String(user._id));
+        await this.sessionService?.revokeAllForUser(String(user._id), {
+            reason: 'password-change',
+            except: currentSession?.sessionId,
+        });
         if (mfaSetupPending) {
             const accessToken = await this.createMfaSetupToken(user, (0, request_source_1.normalizeRequestSource)(rawSource));
             return {
@@ -368,7 +457,7 @@ let AuthService = class AuthService {
                 mfaSetupRequired: true,
             };
         }
-        const accessToken = await this.createAccessToken(user, mfaVerified, (0, request_source_1.normalizeRequestSource)(rawSource));
+        const accessToken = await this.createAccessToken(user, mfaVerified, (0, request_source_1.normalizeRequestSource)(rawSource), currentSession);
         return {
             message: 'Password updated successfully.',
             accessToken,
@@ -468,6 +557,9 @@ let AuthService = class AuthService {
         user.passwordResetToken = null;
         user.passwordResetExpires = null;
         await user.save();
+        await this.sessionService?.revokeAllForUser(String(user._id), {
+            reason: 'password-reset',
+        });
         return { message: 'Password updated successfully.' };
     }
     sanitizeUser(user) {
@@ -576,10 +668,12 @@ exports.AuthService = AuthService = __decorate([
     __param(3, (0, common_1.Optional)()),
     __param(4, (0, common_1.Optional)()),
     __param(4, (0, mongoose_1.InjectModel)(exit_clearance_schema_1.ExitClearance.name)),
+    __param(5, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [mongoose_2.Model,
         jwt_1.JwtService,
         mail_service_1.MailService,
         mfa_service_1.MfaService,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        auth_session_service_1.AuthSessionService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

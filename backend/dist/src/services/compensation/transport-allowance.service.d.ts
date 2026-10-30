@@ -24,6 +24,7 @@ export declare class TransportAllowanceService implements OnModuleInit {
     private readonly noticeService;
     private readonly workflowNotifier?;
     private static readonly TRANSPORT_APPROVAL_STATUS;
+    private createBatchNumber;
     constructor(transportModel: Model<TransportAllowanceDocument>, transportSettingModel: Model<TransportAllowanceSettingDocument>, departmentModel: Model<Department>, roleModel: Model<Role>, subsidiaryModel: Model<Subsidiary>, transportWorkflowModel: Model<TransportWorkflowConfigDocument>, transportApprovalModel: Model<TransportAllowanceApproval>, userModel: Model<UserDocument>, branchModel: Model<BranchDocument>, noticeService: NoticeService, workflowNotifier?: WorkflowNotifier);
     private buildBranchByLowerName;
     onModuleInit(): Promise<void>;
@@ -210,6 +211,7 @@ export declare class TransportAllowanceService implements OnModuleInit {
         status: number;
         message: string;
         approvalId: unknown;
+        batchNumber: string;
     }>;
     getApprovals(user: any, options?: {
         status?: string;

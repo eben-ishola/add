@@ -1,8 +1,12 @@
 import { Model } from 'mongoose';
 import { PerformanceAppraisalCycleDocument } from '../../schemas/performance-appraisal-cycle.schema';
+import { PerformanceReviewDocument } from '../../schemas/performance-review.schema';
+import { PerformanceKpiDocument } from '../../schemas/kpi.schema';
 export declare class PerformanceCycleService {
     private readonly appraisalCycleModel;
-    constructor(appraisalCycleModel: Model<PerformanceAppraisalCycleDocument>);
+    private readonly reviewModel;
+    private readonly kpiModel;
+    constructor(appraisalCycleModel: Model<PerformanceAppraisalCycleDocument>, reviewModel?: Model<PerformanceReviewDocument>, kpiModel?: Model<PerformanceKpiDocument>);
     private normalizeEntityIdStrict;
     private normalizeUserId;
     private normalizeCycleStatus;
@@ -10,6 +14,7 @@ export declare class PerformanceCycleService {
     private normalizeRatingTags;
     private parseCycleDate;
     private assertReviewWindowWithinCycle;
+    private assertNoOverlappingActiveCycle;
     private serializeAppraisalCycle;
     listAppraisalCycles(user: any, entity?: string, search?: string): Promise<any>;
     listActiveAppraisalCycles(user: any, entity?: string): Promise<any>;

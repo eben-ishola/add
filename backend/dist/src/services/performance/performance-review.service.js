@@ -21,6 +21,7 @@ const kpi_schema_1 = require("../../schemas/kpi.schema");
 const performance_kpi_result_schema_1 = require("../../schemas/performance-kpi-result.schema");
 const performance_review_schema_1 = require("../../schemas/performance-review.schema");
 const performance_workflow_schema_1 = require("../../schemas/performance-workflow.schema");
+const performance_appraisal_cycle_schema_1 = require("../../schemas/performance-appraisal-cycle.schema");
 const user_schema_1 = require("../../schemas/user.schema");
 const performance_access_util_1 = require("../../utils/performance/performance-access.util");
 const mongo_1 = require("../../utils/shared/mongo");
@@ -29,7 +30,7 @@ const performance_kpi_snapshot_service_1 = require("./performance-kpi-snapshot.s
 const performance_notification_service_1 = require("./performance-notification.service");
 const performance_scoring_service_1 = require("./performance-scoring.service");
 let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceReviewService {
-    constructor(reviewModel, userModel, kpiModel, kpiResultModel, workflowModel, performanceKpiSnapshotService, performanceNotificationService, performanceScoringService) {
+    constructor(reviewModel, userModel, kpiModel, kpiResultModel, workflowModel, performanceKpiSnapshotService, performanceNotificationService, performanceScoringService, appraisalCycleModel = undefined) {
         this.reviewModel = reviewModel;
         this.userModel = userModel;
         this.kpiModel = kpiModel;
@@ -38,6 +39,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         this.performanceKpiSnapshotService = performanceKpiSnapshotService;
         this.performanceNotificationService = performanceNotificationService;
         this.performanceScoringService = performanceScoringService;
+        this.appraisalCycleModel = appraisalCycleModel;
     }
     isPrivilegedUser(user) {
         return (0, performance_access_util_1.canManagePerformanceWorkflow)(user);
@@ -255,6 +257,28 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         })
             .filter(Boolean);
     }
+    assertCompletedCoreValueRatings(ratings, label) {
+        if (ratings.some((entry) => entry.rating === null || entry.rating === undefined)) {
+            throw new common_1.BadRequestException(`Rate every configured core value before ${label}.`);
+        }
+    }
+    async buildOfficialCoreValueRatings(entityId, submitted) {
+        const official = await this.performanceKpiSnapshotService.getActiveCoreValueSeeds(entityId);
+        const normalized = this.normalizeCoreValueRatings(submitted);
+        if (!official.length)
+            return [];
+        const submittedById = new Map(normalized
+            .filter((entry) => entry.coreValueId)
+            .map((entry) => [String(entry.coreValueId), entry]));
+        const officialIds = new Set(official.map((entry) => String(entry.coreValueId)));
+        if (normalized.some((entry) => !entry.coreValueId || !officialIds.has(String(entry.coreValueId)))) {
+            throw new common_1.BadRequestException('Core value ratings must use the configured core values.');
+        }
+        return official.map((entry) => ({
+            ...entry,
+            rating: submittedById.get(String(entry.coreValueId))?.rating ?? null,
+        }));
+    }
     validateReviewPeriod(value) {
         const raw = (value ?? '').trim();
         if (!raw) {
@@ -322,7 +346,43 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         if (objectId) {
             or.unshift({ _id: new mongoose_2.Types.ObjectId(objectId) });
         }
-        return this.userModel.findOne({ $or: or }).lean().exec();
+        return this.userModel
+            .findOne({ $or: or })
+            .populate('department')
+            .populate('role')
+            .lean()
+            .exec();
+    }
+    async fillMissingReviewDepartments(reviews) {
+        const missing = reviews.filter((review) => review?._id &&
+            this.normalizeIdentifier(review?.employeeId) &&
+            !String(review?.department ?? '').trim());
+        if (!missing.length)
+            return reviews;
+        const resolved = await Promise.all(missing.map(async (review) => {
+            const profile = await this.resolveEmployeeProfile(this.normalizeIdentifier(review.employeeId));
+            const department = this.resolveRefValue(profile?.department, [
+                'name',
+                'title',
+                'departmentName',
+            ]);
+            return { review, departmentName: department?.name?.trim() };
+        }));
+        const writes = resolved
+            .filter(({ departmentName }) => Boolean(departmentName))
+            .map(({ review, departmentName }) => {
+            review.department = departmentName;
+            return {
+                updateOne: {
+                    filter: { _id: review._id, $or: [{ department: { $exists: false } }, { department: '' }, { department: null }] },
+                    update: { $set: { department: departmentName } },
+                },
+            };
+        });
+        if (writes.length) {
+            await this.reviewModel.bulkWrite(writes).catch(() => undefined);
+        }
+        return reviews;
     }
     async resolveReviewerName(reviewerId) {
         const trimmed = this.normalizeIdentifier(reviewerId);
@@ -337,6 +397,27 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             return direct;
         const profile = await this.resolveEmployeeProfile(employeeId);
         return this.normalizeUserId(profile?._id ?? profile?.id);
+    }
+    async assertActiveCycleForSelfSubmission(options) {
+        const cycleId = this.normalizeIdentifier(options.appraisalCycleId);
+        if (!cycleId || !mongoose_2.Types.ObjectId.isValid(cycleId)) {
+            throw new common_1.BadRequestException('An active appraisal cycle is required.');
+        }
+        const cycle = await this.appraisalCycleModel.findById(cycleId).lean().exec();
+        if (!cycle || String(cycle.status ?? '').trim().toLowerCase() !== 'active') {
+            throw new common_1.BadRequestException('The selected appraisal cycle is not active.');
+        }
+        if (!options.employeeEntity || String(cycle.entity) !== options.employeeEntity) {
+            throw new common_1.ForbiddenException('The appraisal cycle does not belong to your entity.');
+        }
+        const windowStart = new Date(cycle.reviewStartDate ?? cycle.startDate);
+        const windowEnd = new Date(cycle.reviewEndDate ?? cycle.endDate);
+        if (Number.isNaN(windowStart.getTime()) ||
+            Number.isNaN(windowEnd.getTime()) ||
+            options.reviewStartDate < windowStart ||
+            options.reviewEndDate > windowEnd) {
+            throw new common_1.BadRequestException('The review period must fall within the active cycle review window.');
+        }
     }
     normalizeEntityId(value) {
         const candidate = value?._id ??
@@ -531,8 +612,6 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             return 'supervisor';
         if (input.reviewer2Id)
             return 'supervisor2';
-        if (input.hrReviewerIds?.length)
-            return 'hr';
         return 'completed';
     }
     async assertCanAccessReview(user, review) {
@@ -555,7 +634,6 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             this.resolveInitialReviewStage({
                 reviewerId,
                 reviewer2Id,
-                hrReviewerIds,
             }));
         if (reviewerId && reviewerId === actorId) {
             return;
@@ -645,7 +723,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             this.reviewModel.countDocuments(filters),
         ]);
         return {
-            data,
+            data: await this.fillMissingReviewDepartments(data),
             total,
             page: safePage,
             limit: safeLimit,
@@ -726,7 +804,10 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
                     r.staffId = staffId;
             }
         }
-        return { data, total: data.length };
+        return {
+            data: await this.fillMissingReviewDepartments(data),
+            total: data.length,
+        };
     }
     async getReview(id, user) {
         const review = await this.reviewModel.findById(id).lean().exec();
@@ -738,7 +819,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         }
         return review;
     }
-    async createReview(payload) {
+    async createReview(payload, actor, options) {
         if (!payload.employeeId) {
             throw new common_1.BadRequestException('Employee ID is required');
         }
@@ -812,22 +893,15 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             ? supervisor2IdRaw
             : undefined;
         const entityId = this.normalizeEntityId(profile?.entity);
-        let hrReviewerIds = [];
-        if (entityId) {
-            const workflowConfig = await this.workflowModel
-                .findOne({ entity: new mongoose_2.Types.ObjectId(entityId), enabled: true })
-                .lean()
-                .exec();
-            hrReviewerIds = this.normalizeUserIdList(workflowConfig?.hrReviewerIds);
-        }
+        await this.assertActiveCycleForSelfSubmission({
+            appraisalCycleId: payload.appraisalCycleId,
+            employeeEntity: entityId,
+            reviewStartDate,
+            reviewEndDate,
+        });
+        const hrReviewerIds = [];
         let reviewerId = payloadReviewerId ?? (shouldAutoAssign ? supervisorId : undefined);
         let reviewer2Id = payloadReviewer2Id ?? (shouldAutoAssign ? supervisor2Id : undefined);
-        if (shouldAutoAssign && !reviewerId && hrReviewerIds.length) {
-            reviewerId = hrReviewerIds[0];
-        }
-        if (shouldAutoAssign && !reviewer2Id && hrReviewerIds.length) {
-            reviewer2Id = hrReviewerIds.find((id) => id !== reviewerId);
-        }
         if (reviewer2Id && reviewer2Id === reviewerId) {
             reviewer2Id = undefined;
         }
@@ -843,12 +917,14 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
                 ? String(payload.appraisalCycleId)
                 : undefined,
         });
-        const coreValueRatings = this.performanceKpiSnapshotService.allocateBehaviouralWeights(this.normalizeCoreValueRatings(payload.coreValueRatings), kpiSnapshot);
-        const reviewerCoreValueRatings = this.performanceKpiSnapshotService.allocateBehaviouralWeights(this.normalizeCoreValueRatings(payload.reviewerCoreValueRatings), kpiSnapshot);
+        const coreValueRatings = this.performanceKpiSnapshotService.allocateBehaviouralWeights(await this.buildOfficialCoreValueRatings(entityId, payload.coreValueRatings), kpiSnapshot);
+        const reviewerCoreValueRatings = this.performanceKpiSnapshotService.allocateBehaviouralWeights(await this.buildOfficialCoreValueRatings(entityId, payload.reviewerCoreValueRatings), kpiSnapshot);
+        if (options?.selfSubmission) {
+            this.assertCompletedCoreValueRatings(coreValueRatings, 'submitting your appraisal');
+        }
         const reviewStage = this.resolveInitialReviewStage({
             reviewerId,
             reviewer2Id,
-            hrReviewerIds,
         });
         let saved;
         if (isResubmission) {
@@ -949,9 +1025,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             ? [resolvedReviewerId].filter(Boolean)
             : reviewStage === 'supervisor2'
                 ? [resolvedReviewer2Id].filter(Boolean)
-                : reviewStage === 'hr'
-                    ? hrReviewerIds
-                    : [];
+                : [];
         if (stageRecipients.length) {
             await this.performanceNotificationService.notifyUsers({
                 userIds: stageRecipients,
@@ -976,6 +1050,52 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         }
         return saved;
     }
+    async submitSelfReview(payload, actor) {
+        const actorId = this.normalizeUserId(actor?._id ?? actor?.id ?? actor?.userId);
+        if (!actorId) {
+            throw new common_1.ForbiddenException('Unable to identify the employee submitting this appraisal.');
+        }
+        const profile = await this.resolveEmployeeProfile(actorId);
+        if (!profile) {
+            throw new common_1.ForbiddenException('Your employee record could not be found.');
+        }
+        const canonicalEmployeeId = String(profile.staffId ?? profile._id ?? '').trim();
+        const suppliedEmployeeId = this.normalizeIdentifier(payload?.employeeId);
+        const allowedIdentifiers = new Set([canonicalEmployeeId, String(profile._id ?? ''), String(profile.employeeId ?? '')]
+            .map((value) => value.trim().toLowerCase())
+            .filter(Boolean));
+        if (!suppliedEmployeeId || !allowedIdentifiers.has(suppliedEmployeeId.toLowerCase())) {
+            throw new common_1.ForbiddenException('You can only submit an appraisal for your own employee record.');
+        }
+        return this.createReview({
+            ...payload,
+            employeeId: canonicalEmployeeId,
+            employeeName: undefined,
+            reviewType: 'Self',
+            status: 'Pending',
+            reviewerId: undefined,
+            reviewerName: undefined,
+            reviewer2Id: undefined,
+            reviewer2Name: undefined,
+            reviewer2Rating: undefined,
+            reviewer2Summary: undefined,
+            reviewer2Recommendation: undefined,
+            reviewerCoreValueRatings: undefined,
+        }, actor, { selfSubmission: true });
+    }
+    async returnReviewToEmployeeStage(id) {
+        if (!mongoose_2.Types.ObjectId.isValid(id))
+            return;
+        await this.reviewModel
+            .updateOne({ _id: new mongoose_2.Types.ObjectId(id), reviewStage: { $ne: 'completed' } }, {
+            $set: {
+                reviewStage: 'employee',
+                reviewStageUpdatedAt: new Date(),
+                status: 'Pending Employee Review',
+            },
+        })
+            .exec();
+    }
     async updateReview(id, updates, actor) {
         const review = await this.reviewModel.findById(id).exec();
         if (!review) {
@@ -987,7 +1107,6 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             this.resolveInitialReviewStage({
                 reviewerId: this.normalizeIdentifier(review.reviewerId),
                 reviewer2Id: this.normalizeIdentifier(review.reviewer2Id),
-                hrReviewerIds: this.normalizeUserIdList(review.hrReviewerIds),
             });
         const actorId = this.normalizeUserId(actor?._id ?? actor?.id ?? actor?.userId ?? actor?.staffId) ??
             this.normalizeIdentifier(actor?._id ?? actor?.id ?? actor?.userId ?? actor?.staffId);
@@ -997,7 +1116,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         const actorKey = this.normalizeIdentifier(actorId);
         const isReviewer1 = Boolean(actorKey && reviewerId && actorKey === reviewerId);
         const isReviewer2 = Boolean(actorKey && reviewer2Id && actorKey === reviewer2Id);
-        const isHrReviewer = Boolean(actorKey && hrReviewerIds.includes(actorKey));
+        const isHrReviewer = false;
         const isSecondReviewer = isReviewer2 && !isReviewer1;
         const isDraft = updates.draft === true;
         delete updates.draft;
@@ -1021,13 +1140,20 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
                     throw new common_1.ForbiddenException('This review is not ready for second-level scoring.');
                 }
             }
-            else if (isHrReviewer) {
-                if (previousStage !== 'hr') {
-                    throw new common_1.ForbiddenException('This review is not ready for HR scoring.');
-                }
-            }
             else {
                 throw new common_1.ForbiddenException('You do not have permission to update this review.');
+            }
+            const reviewerWritableFields = new Set([
+                'rating',
+                'summary',
+                'recommendation',
+                'trainingRecommendation',
+                'reviewerCoreValueRatings',
+                'draft',
+            ]);
+            const unsafeField = Object.keys(updates).find((field) => !reviewerWritableFields.has(field));
+            if (unsafeField) {
+                throw new common_1.ForbiddenException(`Reviewers cannot change ${unsafeField}.`);
             }
         }
         if (Object.prototype.hasOwnProperty.call(updates, 'reviewPeriod')) {
@@ -1153,7 +1279,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             delete updates.reviewer2Name;
         }
         if (Object.prototype.hasOwnProperty.call(updates, 'coreValueRatings')) {
-            const normalizedCoreValueRatings = this.normalizeCoreValueRatings(updates.coreValueRatings);
+            const normalizedCoreValueRatings = await this.buildOfficialCoreValueRatings(this.normalizeEntityId(review.entity), updates.coreValueRatings);
             review.coreValueRatings =
                 this.performanceKpiSnapshotService.allocateBehaviouralWeights(normalizedCoreValueRatings, review.kpiSnapshot);
             review.coreValueSnapshotAt = review.coreValueRatings?.length
@@ -1162,7 +1288,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             delete updates.coreValueRatings;
         }
         if (Object.prototype.hasOwnProperty.call(updates, 'reviewerCoreValueRatings')) {
-            const normalizedReviewerCoreValueRatings = this.normalizeCoreValueRatings(updates.reviewerCoreValueRatings);
+            const normalizedReviewerCoreValueRatings = await this.buildOfficialCoreValueRatings(this.normalizeEntityId(review.entity), updates.reviewerCoreValueRatings);
             review.reviewerCoreValueRatings =
                 this.performanceKpiSnapshotService.allocateBehaviouralWeights(normalizedReviewerCoreValueRatings, review.kpiSnapshot);
             review.reviewerCoreValueSnapshotAt = review.reviewerCoreValueRatings?.length
@@ -1176,21 +1302,20 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
                 if (reviewer2Id) {
                     nextStage = 'supervisor2';
                 }
-                else if (hrReviewerIds.length) {
-                    nextStage = 'hr';
-                }
                 else {
                     nextStage = 'completed';
                 }
             }
             else if (previousStage === 'supervisor2' && isReviewer2) {
-                nextStage = hrReviewerIds.length ? 'hr' : 'completed';
-            }
-            else if (previousStage === 'hr' && isHrReviewer) {
                 nextStage = 'completed';
             }
         }
         if (nextStage && nextStage !== previousStage) {
+            const reviewerRating = isSecondReviewer ? review.reviewer2Rating : review.rating;
+            if (reviewerRating === null || reviewerRating === undefined) {
+                throw new common_1.BadRequestException('A reviewer rating is required before advancing this appraisal.');
+            }
+            this.assertCompletedCoreValueRatings(review.reviewerCoreValueRatings ?? [], 'advancing this appraisal');
             review.reviewStage = nextStage;
             review.reviewStageUpdatedAt = new Date();
             if (nextStage === 'completed') {
@@ -1247,9 +1372,7 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
             }
             const stageRecipients = nextStage === 'supervisor2'
                 ? [resolvedReviewer2Id].filter(Boolean)
-                : nextStage === 'hr'
-                    ? hrReviewerIds
-                    : [];
+                : [];
             if (stageRecipients.length) {
                 await this.performanceNotificationService.notifyUsers({
                     userIds: stageRecipients,
@@ -1278,7 +1401,10 @@ let PerformanceReviewService = PerformanceReviewService_1 = class PerformanceRev
         }
         return saved;
     }
-    async bulkCreateFromCsv(rows) {
+    async bulkCreateFromCsv(rows, actor) {
+        if (!this.isPrivilegedUser(actor)) {
+            throw new common_1.ForbiddenException('You do not have permission to bulk create performance reviews.');
+        }
         if (!rows.length) {
             throw new common_1.BadRequestException('CSV file is empty');
         }
@@ -1363,6 +1489,7 @@ exports.PerformanceReviewService = PerformanceReviewService = PerformanceReviewS
     __param(2, (0, mongoose_1.InjectModel)(kpi_schema_1.PerformanceKpi.name)),
     __param(3, (0, mongoose_1.InjectModel)(performance_kpi_result_schema_1.PerformanceKpiResult.name)),
     __param(4, (0, mongoose_1.InjectModel)(performance_workflow_schema_1.PerformanceWorkflowConfig.name)),
+    __param(8, (0, mongoose_1.InjectModel)(performance_appraisal_cycle_schema_1.PerformanceAppraisalCycle.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
@@ -1370,6 +1497,7 @@ exports.PerformanceReviewService = PerformanceReviewService = PerformanceReviewS
         mongoose_2.Model,
         performance_kpi_snapshot_service_1.PerformanceKpiSnapshotService,
         performance_notification_service_1.PerformanceNotificationService,
-        performance_scoring_service_1.PerformanceScoringService])
+        performance_scoring_service_1.PerformanceScoringService,
+        mongoose_2.Model])
 ], PerformanceReviewService);
 //# sourceMappingURL=performance-review.service.js.map

@@ -21,6 +21,7 @@ const performance_service_1 = require("../../services/performance/performance.se
 const performance_review_dto_1 = require("../../dto/performance-review.dto");
 const request_validation_pipe_1 = require("../../dto/request-validation.pipe");
 const spreadsheet_util_1 = require("../../utils/shared/spreadsheet.util");
+const performance_access_util_1 = require("../../utils/performance/performance-access.util");
 let PerformanceController = class PerformanceController {
     constructor(performanceService) {
         this.performanceService = performanceService;
@@ -41,19 +42,28 @@ let PerformanceController = class PerformanceController {
     getReview(id, user) {
         return this.performanceService.getReview(id, user);
     }
-    createReview(payload) {
-        return this.performanceService.createReview(payload);
+    createReview(payload, user) {
+        if (!(0, performance_access_util_1.canManagePerformanceWorkflow)(user)) {
+            return this.performanceService.submitSelfReview(payload, user);
+        }
+        return this.performanceService.createReview(payload, user);
     }
-    recomputeAllReviews() {
+    submitSelfReview(payload, user) {
+        return this.performanceService.submitSelfReview(payload, user);
+    }
+    recomputeAllReviews(user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         return this.performanceService.recomputeAllReviewScores();
     }
-    backfillSupervisorKpiResults(id) {
+    backfillSupervisorKpiResults(id, user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         return this.performanceService.backfillSupervisorKpiResultsForReview(id);
     }
     refreshReview(id, user) {
         return this.performanceService.refreshReview(id, user);
     }
-    debugKpiResolution(id) {
+    debugKpiResolution(id, user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         return this.performanceService.debugKpiResolutionForReview(id);
     }
     nudgeReviewSupervisor(id, user) {
@@ -70,7 +80,8 @@ let PerformanceController = class PerformanceController {
             dryRun: body?.dryRun,
         });
     }
-    async bulkUploadReviews(file) {
+    async bulkUploadReviews(file, user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         if (!file?.buffer?.length) {
             throw new common_1.BadRequestException('Upload a valid spreadsheet file.');
         }
@@ -114,13 +125,14 @@ let PerformanceController = class PerformanceController {
         if (!rows.length) {
             throw new common_1.BadRequestException('Spreadsheet must include headers and at least one row.');
         }
-        return this.performanceService.bulkCreateFromCsv(rows);
+        return this.performanceService.bulkCreateFromCsv(rows, user);
     }
     updateReview(id, payload, user) {
         return this.performanceService.updateReview(id, payload, user);
     }
-    deleteReview(id) {
-        return this.performanceService.deleteReview(id);
+    deleteReview(id, user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
+        return this.performanceService.deleteReview(id, user);
     }
     getWorkflowConfigs(user, entity) {
         return this.performanceService.getWorkflowConfigs(user, entity);
@@ -230,23 +242,35 @@ __decorate([
     (0, common_1.Post)('reviews'),
     (0, common_1.UsePipes)(request_validation_pipe_1.requestValidationPipe),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [performance_review_dto_1.CreatePerformanceReviewDto]),
+    __metadata("design:paramtypes", [performance_review_dto_1.CreatePerformanceReviewDto, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "createReview", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Post)('reviews/recompute-all'),
+    (0, common_1.Post)('reviews/self-submit'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [performance_review_dto_1.CreatePerformanceReviewDto, Object]),
+    __metadata("design:returntype", void 0)
+], PerformanceController.prototype, "submitSelfReview", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('reviews/recompute-all'),
+    __param(0, (0, user_decorator_1.UserOne)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "recomputeAllReviews", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('reviews/:id/backfill-supervisor'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "backfillSupervisorKpiResults", null);
 __decorate([
@@ -262,8 +286,9 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Get)('reviews/:id/kpi-resolution-debug'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "debugKpiResolution", null);
 __decorate([
@@ -300,8 +325,9 @@ __decorate([
     (0, common_1.Post)('reviews/bulk'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], PerformanceController.prototype, "bulkUploadReviews", null);
 __decorate([
@@ -319,8 +345,9 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Delete)('reviews/:id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceController.prototype, "deleteReview", null);
 __decorate([

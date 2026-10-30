@@ -18,10 +18,14 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const moment = require("moment-timezone");
 const performance_appraisal_cycle_schema_1 = require("../../schemas/performance-appraisal-cycle.schema");
+const performance_review_schema_1 = require("../../schemas/performance-review.schema");
+const kpi_schema_1 = require("../../schemas/kpi.schema");
 const performance_access_util_1 = require("../../utils/performance/performance-access.util");
 let PerformanceCycleService = class PerformanceCycleService {
-    constructor(appraisalCycleModel) {
+    constructor(appraisalCycleModel, reviewModel = undefined, kpiModel = undefined) {
         this.appraisalCycleModel = appraisalCycleModel;
+        this.reviewModel = reviewModel;
+        this.kpiModel = kpiModel;
     }
     normalizeEntityIdStrict(value) {
         const candidate = value?._id ??
@@ -116,12 +120,30 @@ let PerformanceCycleService = class PerformanceCycleService {
         throw new common_1.BadRequestException(`${label} date is invalid.`);
     }
     assertReviewWindowWithinCycle(reviewStartDate, reviewEndDate, cycleStartDate, cycleEndDate) {
-        void cycleEndDate;
         if (reviewEndDate < reviewStartDate) {
             throw new common_1.BadRequestException('Review end date cannot be earlier than review start date.');
         }
         if (reviewStartDate < cycleStartDate) {
             throw new common_1.BadRequestException('Review start date cannot be earlier than appraisal start date.');
+        }
+        if (reviewEndDate > cycleEndDate) {
+            throw new common_1.BadRequestException('Review end date cannot be later than appraisal end date.');
+        }
+    }
+    async assertNoOverlappingActiveCycle(entityId, startDate, endDate, excludedId) {
+        const query = {
+            entity: new mongoose_2.Types.ObjectId(entityId),
+            status: { $regex: /^active$/i },
+            startDate: { $lte: endDate },
+            endDate: { $gte: startDate },
+        };
+        if (excludedId && mongoose_2.Types.ObjectId.isValid(excludedId)) {
+            query._id = { $ne: new mongoose_2.Types.ObjectId(excludedId) };
+        }
+        const candidate = this.appraisalCycleModel.findOne(query);
+        const existing = candidate?.lean ? await candidate.lean().exec() : null;
+        if (existing) {
+            throw new common_1.BadRequestException('An overlapping active appraisal cycle already exists for this entity.');
         }
     }
     serializeAppraisalCycle(record) {
@@ -154,6 +176,7 @@ let PerformanceCycleService = class PerformanceCycleService {
         };
     }
     async listAppraisalCycles(user, entity, search) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         const entityId = this.normalizeEntityIdStrict(entity ?? user?.entity);
         const query = { entity: new mongoose_2.Types.ObjectId(entityId) };
         if (search && String(search).trim()) {
@@ -179,6 +202,10 @@ let PerformanceCycleService = class PerformanceCycleService {
         const query = {
             entity: new mongoose_2.Types.ObjectId(entityId),
             status: { $regex: /^active$/i },
+            startDate: { $lte: new Date() },
+            endDate: { $gte: new Date() },
+            reviewStartDate: { $lte: new Date() },
+            reviewEndDate: { $gte: new Date() },
         };
         const rows = await this.appraisalCycleModel
             .find(query)
@@ -188,6 +215,7 @@ let PerformanceCycleService = class PerformanceCycleService {
         return { status: 200, data: rows.map((row) => this.serializeAppraisalCycle(row)) };
     }
     async debugAppraisalCycleExists(user, entity) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         const entityId = this.normalizeEntityIdStrict(entity ?? user?.entity ?? user?.selectedSubsidiary ?? user?.subsidiary);
         const query = { entity: new mongoose_2.Types.ObjectId(entityId) };
         const [total, activeTotal, latest] = await Promise.all([
@@ -239,6 +267,9 @@ let PerformanceCycleService = class PerformanceCycleService {
         const reviewEndDate = this.parseCycleDate(payload?.reviewEndDate, 'Review end');
         this.assertReviewWindowWithinCycle(reviewStartDate, reviewEndDate, startDate, endDate);
         const status = this.normalizeCycleStatus(payload?.status);
+        if (status === 'Active') {
+            await this.assertNoOverlappingActiveCycle(entityId, startDate, endDate);
+        }
         const types = this.normalizeStringList(payload?.types);
         const scoreType = payload?.scoreType ? String(payload.scoreType).trim() : undefined;
         const scoreTypeLabel = payload?.scoreTypeLabel
@@ -369,11 +400,25 @@ let PerformanceCycleService = class PerformanceCycleService {
         record.endDate = nextCycleEndDate;
         record.reviewStartDate = nextReviewStartDate;
         record.reviewEndDate = nextReviewEndDate;
+        if (record.status === 'Active') {
+            await this.assertNoOverlappingActiveCycle(String(record.entity), nextCycleStartDate, nextCycleEndDate, String(record._id));
+        }
         const saved = await record.save();
         return { status: 200, data: this.serializeAppraisalCycle(saved) };
     }
     async deleteAppraisalCycle(user, id) {
         (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
+        if (!mongoose_2.Types.ObjectId.isValid(id)) {
+            throw new common_1.BadRequestException('Appraisal cycle is invalid.');
+        }
+        const cycleObjectId = new mongoose_2.Types.ObjectId(id);
+        const [reviewCount, kpiCount] = await Promise.all([
+            this.reviewModel.countDocuments({ appraisalCycleId: cycleObjectId }),
+            this.kpiModel.countDocuments({ appraisalCycleId: cycleObjectId }),
+        ]);
+        if (reviewCount > 0 || kpiCount > 0) {
+            throw new common_1.BadRequestException('This appraisal cycle has linked reviews or KPIs and cannot be deleted. Close or archive it instead.');
+        }
         const record = await this.appraisalCycleModel.findByIdAndDelete(id).lean().exec();
         if (!record) {
             throw new common_1.NotFoundException('Appraisal cycle not found.');
@@ -385,6 +430,10 @@ exports.PerformanceCycleService = PerformanceCycleService;
 exports.PerformanceCycleService = PerformanceCycleService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(performance_appraisal_cycle_schema_1.PerformanceAppraisalCycle.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(performance_review_schema_1.PerformanceReview.name)),
+    __param(2, (0, mongoose_1.InjectModel)(kpi_schema_1.PerformanceKpi.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model])
 ], PerformanceCycleService);
 //# sourceMappingURL=performance-cycle.service.js.map

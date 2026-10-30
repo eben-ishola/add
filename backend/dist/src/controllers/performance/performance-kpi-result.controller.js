@@ -15,7 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PerformanceKpiResultController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../../auth/guards/jwt-auth.guard");
+const user_decorator_1 = require("../../auth/decorators/user.decorator");
 const performance_kpi_result_service_1 = require("../../services/performance/performance-kpi-result.service");
+const performance_access_util_1 = require("../../utils/performance/performance-access.util");
 const resolveActorId = (req) => {
     return (req?.user?._id ??
         req?.user?.id ??
@@ -29,18 +31,20 @@ let PerformanceKpiResultController = class PerformanceKpiResultController {
     listResults(period, periodStart, periodEnd, employeeId, status, source, kpiId, search, entity, appraisalCycleId, page = '1', limit = '20') {
         return this.performanceKpiResultService.listResults({ period, periodStart, periodEnd, employeeId, status, source, kpiId, search, entity, appraisalCycleId }, parseInt(page, 10), parseInt(limit, 10));
     }
-    submitManual(payload, req) {
+    submitManual(payload, req, user) {
         const actorId = resolveActorId(req);
-        return this.performanceKpiResultService.submitManualResult(payload, actorId);
+        return this.performanceKpiResultService.submitManualResult(payload, actorId, user);
     }
-    approveResult(id, payload, req) {
+    approveResult(id, payload, req, user) {
         const actorId = resolveActorId(req);
-        return this.performanceKpiResultService.approveResult(id, payload, actorId);
+        return this.performanceKpiResultService.approveResult(id, payload, actorId, user);
     }
-    importApiResults(payload) {
+    importApiResults(payload, user) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         return this.performanceKpiResultService.importApiResults(payload);
     }
-    openMonthly(period) {
+    openMonthly(user, period) {
+        (0, performance_access_util_1.assertCanManagePerformanceWorkflow)(user);
         return this.performanceKpiResultService.openMonthlyResults(period);
     }
 };
@@ -69,8 +73,9 @@ __decorate([
     (0, common_1.Post)('submit'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
+    __param(2, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceKpiResultController.prototype, "submitManual", null);
 __decorate([
@@ -79,24 +84,27 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
+    __param(3, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:paramtypes", [String, Object, Object, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceKpiResultController.prototype, "approveResult", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('import'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, user_decorator_1.UserOne)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], PerformanceKpiResultController.prototype, "importApiResults", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('open'),
-    __param(0, (0, common_1.Body)('period')),
+    __param(0, (0, user_decorator_1.UserOne)()),
+    __param(1, (0, common_1.Body)('period')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], PerformanceKpiResultController.prototype, "openMonthly", null);
 exports.PerformanceKpiResultController = PerformanceKpiResultController = __decorate([

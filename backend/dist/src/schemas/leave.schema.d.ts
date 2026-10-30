@@ -13,6 +13,7 @@ export declare class Leave {
     reason: string;
     contactDetails: string;
     handoverNoteUrl: string;
+    timetableUrl?: string;
     relieverApproval: Types.ObjectId;
     relieverStatus: string;
     hodApproval: Types.ObjectId;

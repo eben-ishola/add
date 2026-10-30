@@ -113,6 +113,12 @@ export declare class PerformanceKpiSnapshotService {
         weight?: number | string | null;
     }>): T[];
     private resolveCoreValueSeedsForReview;
+    getActiveCoreValueSeeds(entityId?: string | null): Promise<{
+        coreValueId: any;
+        title: any;
+        description: any;
+        weight: number;
+    }[]>;
     reconcileBehaviouralWeightsForSnapshot(review: PerformanceReviewDocument, kpiSnapshot?: Array<{
         weight?: number | string | null;
     }>): Promise<void>;

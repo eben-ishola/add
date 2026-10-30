@@ -132,6 +132,7 @@ export declare class TransportAllowanceController {
         status: number;
         message: string;
         approvalId: unknown;
+        batchNumber: string;
     }>;
     approvals(user: any, status?: string, entity?: string, assignedOnly?: string, userId?: string, assignedId?: string): Promise<{
         status: number;

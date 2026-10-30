@@ -36,6 +36,7 @@ __decorate([
             unpaid: 0,
             sick: 0,
             compassionate: 0,
+            exam: 5,
         },
     }),
     __metadata("design:type", Object)

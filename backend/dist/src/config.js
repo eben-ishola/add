@@ -41,6 +41,16 @@ const readNumberEnv = (name) => {
     }
     return parsed;
 };
+const readOptionalNumberEnv = (name, fallback) => {
+    const raw = envFile[name]?.trim() ?? '';
+    if (!raw)
+        return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+        throw new Error(`Invalid number for environment variable: ${name}`);
+    }
+    return parsed;
+};
 const readBooleanEnv = (name) => {
     const raw = readEnv(name).toLowerCase();
     if (raw === 'true')
@@ -93,5 +103,6 @@ exports.config = {
     swaggerEnabled: readBooleanEnv('SWAGGER_ENABLED'),
     jwtSecret: readEnv('JWT_SECRET'),
     mfaChallengeSecret: readEnv('MFA_CHALLENGE_SECRET'),
+    sessionMaxHours: readOptionalNumberEnv('SESSION_MAX_HOURS', 12),
 };
 //# sourceMappingURL=config.js.map

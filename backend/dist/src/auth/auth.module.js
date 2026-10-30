@@ -23,6 +23,8 @@ const mfa_service_1 = require("./services/mfa.service");
 const mfa_controller_1 = require("./mfa.controller");
 const permissions_guard_1 = require("./guards/permissions.guard");
 const config_1 = require("../config");
+const auth_session_schema_1 = require("../schemas/auth-session.schema");
+const auth_session_service_1 = require("./services/auth-session.service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -32,15 +34,23 @@ exports.AuthModule = AuthModule = __decorate([
             passport_1.PassportModule,
             jwt_1.JwtModule.register({
                 secret: config_1.config.jwtSecret,
-                signOptions: { expiresIn: '1h' },
+                signOptions: { expiresIn: auth_session_service_1.ACCESS_TOKEN_TTL_SECONDS },
             }),
             mongoose_1.MongooseModule.forFeature([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: mfa_policy_schema_1.MfaPolicy.name, schema: mfa_policy_schema_1.MfaPolicySchema },
                 { name: exit_clearance_schema_1.ExitClearance.name, schema: exit_clearance_schema_1.ExitClearanceSchema },
+                { name: auth_session_schema_1.AuthSession.name, schema: auth_session_schema_1.AuthSessionSchema },
             ]),
         ],
-        providers: [jwt_stategy_1.JwtStrategy, auth_service_1.AuthService, mail_service_1.MailService, mfa_service_1.MfaService, permissions_guard_1.PermissionsGuard],
+        providers: [
+            jwt_stategy_1.JwtStrategy,
+            auth_service_1.AuthService,
+            auth_session_service_1.AuthSessionService,
+            mail_service_1.MailService,
+            mfa_service_1.MfaService,
+            permissions_guard_1.PermissionsGuard,
+        ],
         controllers: [auth_controller_1.AuthController, users_controller_1.UsersController, mfa_controller_1.MfaController],
         exports: [jwt_1.JwtModule, auth_service_1.AuthService, mfa_service_1.MfaService, permissions_guard_1.PermissionsGuard],
     })

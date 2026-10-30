@@ -98,9 +98,14 @@ let LeaveController = class LeaveController {
     }
     async createLeave(leaveData, file) {
         const fileUrl = file ? `uploads/${file.filename}` : undefined;
+        const isExamLeave = String(leaveData?.leaveType ?? '').trim().toLowerCase() === 'exam';
+        if (isExamLeave && !file) {
+            throw new common_1.BadRequestException('An exam timetable upload is required for exam leave.');
+        }
         const createdLeave = await this.leaveService.createLeave({
             ...leaveData,
             ...(fileUrl ? { handoverNoteUrl: fileUrl } : {}),
+            ...(fileUrl && isExamLeave ? { timetableUrl: fileUrl } : {}),
         });
         return {
             message: 'Leave created successfully',

@@ -64,6 +64,10 @@ __decorate([
     __metadata("design:type", String)
 ], Leave.prototype, "handoverNoteUrl", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Leave.prototype, "timetableUrl", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ ref: 'User' }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Leave.prototype, "relieverApproval", void 0);

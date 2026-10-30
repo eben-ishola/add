@@ -62,6 +62,7 @@ export declare class LeaveController {
             casual: number;
             unpaid: number;
             compassionate: number;
+            exam: number;
         };
     }>;
     approveLeave(id: string, type: 'reliever' | 'hod' | 'hr', user: any, status: string, comment?: string): Promise<any>;

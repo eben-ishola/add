@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResetPasswordDto = exports.VerifyPasswordResetDto = exports.RequestPasswordResetDto = exports.ChangePasswordDto = void 0;
+exports.ResetPasswordDto = exports.RefreshTokenDto = exports.VerifyPasswordResetDto = exports.RequestPasswordResetDto = exports.ChangePasswordDto = void 0;
 const class_validator_1 = require("class-validator");
 const request_source_dto_1 = require("./request-source.dto");
 class ChangePasswordDto extends request_source_dto_1.RequestSourceDto {
@@ -44,6 +44,14 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], VerifyPasswordResetDto.prototype, "token", void 0);
+class RefreshTokenDto extends request_source_dto_1.RequestSourceDto {
+}
+exports.RefreshTokenDto = RefreshTokenDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], RefreshTokenDto.prototype, "refreshToken", void 0);
 class ResetPasswordDto extends VerifyPasswordResetDto {
 }
 exports.ResetPasswordDto = ResetPasswordDto;

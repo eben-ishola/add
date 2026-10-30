@@ -43,6 +43,7 @@ const attachAuthenticationState = (user, payload, accessScope) => ({
     requestSource: (0, request_source_1.normalizeRequestSource)(payload?.source),
     mfaSetupPending: accessScope === 'mfa-setup',
     mfaVerified: accessScope === 'full' && payload?.mfaVerified === true,
+    sessionId: typeof payload?.sid === 'string' && payload.sid ? payload.sid : undefined,
 });
 const mfaAccessDenied = (user, accessScope) => accessScope === 'full' &&
     Boolean(user?.mfaRequired) &&

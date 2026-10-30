@@ -10,6 +10,9 @@ export declare class VerifyPasswordResetDto extends RequestSourceDto {
     email: string;
     token: string;
 }
+export declare class RefreshTokenDto extends RequestSourceDto {
+    refreshToken: string;
+}
 export declare class ResetPasswordDto extends VerifyPasswordResetDto {
     newPassword: string;
 }

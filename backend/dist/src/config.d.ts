@@ -25,5 +25,6 @@ export type AppConfig = {
     swaggerEnabled: boolean;
     jwtSecret: string;
     mfaChallengeSecret: string;
+    sessionMaxHours: number;
 };
 export declare const config: AppConfig;

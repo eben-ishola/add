@@ -18,11 +18,7 @@ export declare class PerformanceController {
         average: number;
     }>;
     exportReviews(user: any, status?: string, department?: string, reviewer?: string, employeeId?: string, search?: string, supervisorScope?: string, subordinateScope?: string, entity?: string, appraisalCycleId?: string): Promise<{
-        data: (import("mongoose").FlattenMaps<import("../../schemas/performance-review.schema").PerformanceReviewDocument> & Required<{
-            _id: import("mongoose").FlattenMaps<unknown>;
-        }> & {
-            __v: number;
-        })[];
+        data: any[];
         total: number;
     }>;
     getReview(id: string, user: any): Promise<import("mongoose").FlattenMaps<import("../../schemas/performance-review.schema").PerformanceReviewDocument> & Required<{
@@ -30,12 +26,13 @@ export declare class PerformanceController {
     }> & {
         __v: number;
     }>;
-    createReview(payload: CreatePerformanceReviewDto): Promise<any>;
-    recomputeAllReviews(): Promise<{
+    createReview(payload: CreatePerformanceReviewDto, user: any): Promise<any>;
+    submitSelfReview(payload: CreatePerformanceReviewDto, user: any): Promise<any>;
+    recomputeAllReviews(user: any): Promise<{
         processed: number;
         failed: number;
     }>;
-    backfillSupervisorKpiResults(id: string): Promise<{
+    backfillSupervisorKpiResults(id: string, user: any): Promise<{
         reviewId: string;
         status: string;
     }>;
@@ -43,7 +40,7 @@ export declare class PerformanceController {
         status: number;
         message: string;
     }>;
-    debugKpiResolution(id: string): Promise<{
+    debugKpiResolution(id: string, user: any): Promise<{
         review: {
             id: string;
             employeeId: string;
@@ -120,7 +117,7 @@ export declare class PerformanceController {
         failed: number;
         skippedNoUserId: number;
     }>;
-    bulkUploadReviews(file: Express.Multer.File): Promise<{
+    bulkUploadReviews(file: Express.Multer.File, user: any): Promise<{
         created: number;
         skipped: number;
     }>;
@@ -129,7 +126,7 @@ export declare class PerformanceController {
     }> & {
         __v: number;
     }>;
-    deleteReview(id: string): Promise<{
+    deleteReview(id: string, user: any): Promise<{
         deleted: boolean;
     }>;
     getWorkflowConfigs(user: any, entity?: string): Promise<any>;

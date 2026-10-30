@@ -1047,7 +1047,8 @@ let UserOnboardingService = UserOnboardingService_1 = class UserOnboardingServic
     }
     async updateStaff(createStaffDto) {
         try {
-            const { id, ...updateData } = createStaffDto;
+            const { id, ...rawUpdateData } = createStaffDto;
+            const updateData = Object.fromEntries(Object.entries(rawUpdateData).filter(([, value]) => !(typeof value === 'string' && value.trim() === '')));
             const staff = await this.staffModel.findById(id);
             if (!staff) {
                 throw new Error('Staff not found');

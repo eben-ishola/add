@@ -824,10 +824,12 @@ let LeaveService = LeaveService_1 = class LeaveService {
             policy = await this.leavePolicyModel.create({});
         }
         const maternityValue = Number(policy.fixedAllocations?.maternity ?? 0);
-        if (!Number.isFinite(maternityValue) || maternityValue <= 0) {
+        if (!Number.isFinite(maternityValue) ||
+            maternityValue <= 0) {
             policy.fixedAllocations = {
                 ...(policy.fixedAllocations ?? {}),
                 maternity: 90,
+                exam: Number(policy.fixedAllocations?.exam ?? 5),
             };
             await policy.save();
         }
@@ -958,6 +960,14 @@ let LeaveService = LeaveService_1 = class LeaveService {
             throw new Error('A handover note is required for leave requests.');
         }
     }
+    assertExamLeaveRequirements(leaveType, timetableUrl) {
+        if (leaveType !== 'exam')
+            return;
+        const sanitized = String(timetableUrl ?? '').trim();
+        if (!sanitized || sanitized === 'uploads/' || sanitized.endsWith('/')) {
+            throw new Error('An exam timetable upload is required for exam leave.');
+        }
+    }
     assertNoticePeriod(policy, leaveType, startDateValue) {
         const noticeDays = Number(policy.noticePeriodDays ?? 0);
         if (!noticeDays || policy.noticeExemptTypes?.includes(leaveType)) {
@@ -1055,6 +1065,7 @@ let LeaveService = LeaveService_1 = class LeaveService {
             requestedDaysValue = Number.isFinite(fallback) && fallback > 0 ? fallback : 90;
         }
         const { numberOfDays, resumptionDate } = await this.computeLeaveDetails(normalizedStartDate, leaveData?.endDate, leaveType, requestedDaysValue);
+        this.assertExamLeaveRequirements(leaveType, leaveData?.timetableUrl ?? leaveData?.handoverNoteUrl);
         await this.assertLeaveEntitlement({
             userId: leaveData?.userId,
             leaveType,
@@ -1593,6 +1604,7 @@ let LeaveService = LeaveService_1 = class LeaveService {
                 casual: Number(policy.fixedAllocations?.casual ?? 0),
                 unpaid: Number(policy.fixedAllocations?.unpaid ?? 0),
                 compassionate: Number(policy.fixedAllocations?.compassionate ?? 0),
+                exam: Number(policy.fixedAllocations?.exam ?? 5),
             }
         };
     }

@@ -148,6 +148,8 @@ let AuditLogInterceptor = class AuditLogInterceptor {
             return true;
         if (normalized.startsWith('/staff/resolve'))
             return true;
+        if (normalized === '/auth/refresh')
+            return true;
         return false;
     }
     resolveAction(method, path, routePath, params) {

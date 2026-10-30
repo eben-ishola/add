@@ -480,6 +480,22 @@ let PerformanceKpiSnapshotService = class PerformanceKpiSnapshotService {
             rating: undefined,
         }));
     }
+    async getActiveCoreValueSeeds(entityId) {
+        const normalizedEntityId = this.normalizeEntityId(entityId);
+        if (!normalizedEntityId)
+            return [];
+        const coreValues = await this.coreValueModel
+            .find({ entity: new mongoose_2.Types.ObjectId(normalizedEntityId), isActive: { $ne: false } })
+            .sort({ createdAt: 1 })
+            .lean()
+            .exec();
+        return coreValues.map((entry) => ({
+            coreValueId: entry?._id,
+            title: entry?.title,
+            description: entry?.description,
+            weight: Number.isFinite(Number(entry?.weight)) ? Number(entry.weight) : 1,
+        }));
+    }
     async reconcileBehaviouralWeightsForSnapshot(review, kpiSnapshot) {
         const currentEmployeeRatings = Array.isArray(review.coreValueRatings)
             ? review.coreValueRatings

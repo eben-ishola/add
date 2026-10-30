@@ -38,11 +38,10 @@ let MfaController = class MfaController {
     async confirm(user, body) {
         const id = user?._id ?? user?.id;
         const enrollment = await this.mfaService.confirmSetup(String(id), body.token);
-        const accessToken = await this.authService.issueAccessTokenAfterMfaSetup(String(id), body?.source ?? user?.requestSource);
+        const session = await this.authService.issueSessionAfterMfaSetup(String(id), body?.source ?? user?.requestSource);
         return {
             ...enrollment,
-            accessToken,
-            access_token: accessToken,
+            ...session,
         };
     }
     async disable(user, body) {

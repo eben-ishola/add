@@ -3,6 +3,7 @@ import { PerformanceKpiDocument } from '../../schemas/kpi.schema';
 import { PerformanceKpiResultDocument } from '../../schemas/performance-kpi-result.schema';
 import { PerformanceReview, PerformanceReviewDocument } from '../../schemas/performance-review.schema';
 import { PerformanceWorkflowConfig } from '../../schemas/performance-workflow.schema';
+import { PerformanceAppraisalCycleDocument } from '../../schemas/performance-appraisal-cycle.schema';
 import { UserDocument } from '../../schemas/user.schema';
 import { PerformanceKpiSnapshotService } from 'src/services/performance/performance-kpi-snapshot.service';
 import { PerformanceNotificationService } from 'src/services/performance/performance-notification.service';
@@ -75,8 +76,9 @@ export declare class PerformanceReviewService {
     private readonly performanceKpiSnapshotService;
     private readonly performanceNotificationService;
     private readonly performanceScoringService;
+    private readonly appraisalCycleModel;
     private static readonly REVIEW_PERIOD_LABELS;
-    constructor(reviewModel: Model<PerformanceReviewDocument>, userModel: Model<UserDocument>, kpiModel: Model<PerformanceKpiDocument>, kpiResultModel: Model<PerformanceKpiResultDocument>, workflowModel: Model<PerformanceWorkflowConfigDocument>, performanceKpiSnapshotService: PerformanceKpiSnapshotService, performanceNotificationService: PerformanceNotificationService, performanceScoringService: PerformanceScoringService);
+    constructor(reviewModel: Model<PerformanceReviewDocument>, userModel: Model<UserDocument>, kpiModel: Model<PerformanceKpiDocument>, kpiResultModel: Model<PerformanceKpiResultDocument>, workflowModel: Model<PerformanceWorkflowConfigDocument>, performanceKpiSnapshotService: PerformanceKpiSnapshotService, performanceNotificationService: PerformanceNotificationService, performanceScoringService: PerformanceScoringService, appraisalCycleModel?: Model<PerformanceAppraisalCycleDocument>);
     private isPrivilegedUser;
     private normalizeMatchKey;
     private collectUserIdentifiers;
@@ -90,13 +92,17 @@ export declare class PerformanceReviewService {
     private normalizeIdentifier;
     private normalizeRating;
     private normalizeCoreValueRatings;
+    private assertCompletedCoreValueRatings;
+    private buildOfficialCoreValueRatings;
     private validateReviewPeriod;
     private buildRegex;
     private resolveRefValue;
     private formatEmployeeName;
     private resolveEmployeeProfile;
+    private fillMissingReviewDepartments;
     private resolveReviewerName;
     private resolveEmployeeUserId;
+    private assertActiveCycleForSelfSubmission;
     private normalizeEntityId;
     private resetReviewScores;
     private collectReviewKpiObjectIds;
@@ -126,11 +132,7 @@ export declare class PerformanceReviewService {
         average: number;
     }>;
     exportReviews(user: any, query: ReviewQuery): Promise<{
-        data: (import("mongoose").FlattenMaps<PerformanceReviewDocument> & Required<{
-            _id: import("mongoose").FlattenMaps<unknown>;
-        }> & {
-            __v: number;
-        })[];
+        data: any[];
         total: number;
     }>;
     getReview(id: string, user?: any): Promise<import("mongoose").FlattenMaps<PerformanceReviewDocument> & Required<{
@@ -138,13 +140,17 @@ export declare class PerformanceReviewService {
     }> & {
         __v: number;
     }>;
-    createReview(payload: CreateReviewInput): Promise<any>;
+    createReview(payload: CreateReviewInput, actor?: any, options?: {
+        selfSubmission?: boolean;
+    }): Promise<any>;
+    submitSelfReview(payload: CreateReviewInput, actor: any): Promise<any>;
+    returnReviewToEmployeeStage(id: string): Promise<void>;
     updateReview(id: string, updates: UpdateReviewInput, actor?: any): Promise<Document<unknown, {}, PerformanceReviewDocument, {}, {}> & PerformanceReview & Document<unknown, any, any, Record<string, any>, {}> & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
-    bulkCreateFromCsv(rows: Array<Record<string, string>>): Promise<{
+    bulkCreateFromCsv(rows: Array<Record<string, string>>, actor?: any): Promise<{
         created: number;
         skipped: number;
     }>;

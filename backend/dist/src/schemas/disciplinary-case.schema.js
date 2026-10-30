@@ -55,6 +55,18 @@ __decorate([
     __metadata("design:type", String)
 ], DisciplinaryCase.prototype, "reviewerName", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({
+        type: [
+            {
+                id: { type: String },
+                name: { type: String, required: true },
+            },
+        ],
+        default: [],
+    }),
+    __metadata("design:type", Array)
+], DisciplinaryCase.prototype, "reviewerPanel", void 0);
+__decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], DisciplinaryCase.prototype, "summary", void 0);

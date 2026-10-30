@@ -1,6 +1,7 @@
 import mongoose, { Document } from 'mongoose';
 export type TransportAllowanceApprovalStatus = 'PENDING_REVIEW' | 'PENDING_APPROVAL' | 'PENDING_POSTING' | 'APPROVED' | 'REJECTED';
 export declare class TransportAllowanceApproval extends Document {
+    batchNumber?: string;
     entity: mongoose.Types.ObjectId;
     department?: mongoose.Types.ObjectId;
     year: number;

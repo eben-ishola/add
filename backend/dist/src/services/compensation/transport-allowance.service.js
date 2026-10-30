@@ -31,6 +31,12 @@ const user_schema_1 = require("../../schemas/user.schema");
 const branch_schema_1 = require("../../schemas/branch.schema");
 const access_control_util_2 = require("../../utils/shared/access-control.util");
 let TransportAllowanceService = TransportAllowanceService_1 = class TransportAllowanceService {
+    createBatchNumber(entity, year, month) {
+        const period = `${year}${String(month).padStart(2, '0')}`;
+        const entityKey = String(entity).slice(-4).toUpperCase();
+        const nonce = new mongoose_2.Types.ObjectId().toHexString().slice(-6).toUpperCase();
+        return `TA-${period}-${entityKey}-${Date.now()}-${nonce}`;
+    }
     constructor(transportModel, transportSettingModel, departmentModel, roleModel, subsidiaryModel, transportWorkflowModel, transportApprovalModel, userModel, branchModel, noticeService, workflowNotifier) {
         this.transportModel = transportModel;
         this.transportSettingModel = transportSettingModel;
@@ -1315,47 +1321,10 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
         if (!reviewerIds.length) {
             throw new common_1.BadRequestException('At least one reviewer must be configured.');
         }
-        const pendingStatuses = [
-            TransportAllowanceService_1.TRANSPORT_APPROVAL_STATUS.PENDING_REVIEW,
-            TransportAllowanceService_1.TRANSPORT_APPROVAL_STATUS.PENDING_APPROVAL,
-            TransportAllowanceService_1.TRANSPORT_APPROVAL_STATUS.PENDING_POSTING,
-        ];
-        const existing = await this.transportApprovalModel
-            .findOne({
-            entity: context.normalizedEntity,
-            department: { $in: [null, undefined] },
-            year: context.year,
-            month: context.month,
-            weekOfMonth: context.weekOfMonth,
-            frequency,
-            status: { $in: pendingStatuses },
-        })
-            .exec();
         const requesterId = this.normalizeUserIdentifierValue(actor?.id ?? actor?._id ?? actor?.userId);
-        if (existing) {
-            existing.data = data;
-            existing.currentStage = 'REVIEWER';
-            existing.status = TransportAllowanceService_1.TRANSPORT_APPROVAL_STATUS.PENDING_REVIEW;
-            existing.reviewerIds = reviewerIds;
-            existing.approverIds = approverIds;
-            existing.auditViewerIds = auditViewerIds;
-            existing.postingIds = postingIds;
-            existing.requestedBy = requesterId ?? existing.requestedBy;
-            existing.requestedByName = this.composeUserName(actor) ?? existing.requestedByName;
-            existing.initiatorComment = initiatorComment || existing.initiatorComment;
-            await existing.save();
-            await this.workflowNotifier?.dispatch({
-                module: 'transport_allowance',
-                event: 'submitted',
-                doc: existing,
-            });
-            return {
-                status: 200,
-                message: 'Transport allowance sent to reviewer.',
-                approvalId: existing._id,
-            };
-        }
+        const batchNumber = this.createBatchNumber(context.normalizedEntity, context.year, context.month);
         const approval = await this.transportApprovalModel.create({
+            batchNumber,
             entity: context.normalizedEntity,
             year: context.year,
             month: context.month,
@@ -1379,8 +1348,9 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
         });
         return {
             status: 200,
-            message: 'Transport allowance sent to reviewer.',
+            message: `Transport allowance batch ${batchNumber} sent to reviewer.`,
             approvalId: approval._id,
+            batchNumber,
         };
     }
     async getApprovals(user, options) {

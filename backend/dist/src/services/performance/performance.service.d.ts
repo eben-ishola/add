@@ -9,6 +9,7 @@ import { PerformanceNotificationService } from 'src/services/performance/perform
 import { PerformanceReviewService } from 'src/services/performance/performance-review.service';
 import { PerformanceScoringService } from 'src/services/performance/performance-scoring.service';
 import { PerformanceWorkflowConfigService } from 'src/services/performance/performance-workflow-config.service';
+import { PerformanceKpiResultService } from 'src/services/performance/performance-kpi-result.service';
 type PerformanceWorkflowConfigDocument = PerformanceWorkflowConfig & Document;
 type CreateReviewInput = {
     employeeId: string;
@@ -66,7 +67,8 @@ export declare class PerformanceService {
     private readonly performanceReviewService;
     private readonly performanceScoringService;
     private readonly performanceWorkflowConfigService;
-    constructor(reviewModel: Model<PerformanceReviewDocument>, userModel: Model<UserDocument>, workflowModel: Model<PerformanceWorkflowConfigDocument>, performanceCoreValueService: PerformanceCoreValueService, performanceCycleService: PerformanceCycleService, performanceKpiSnapshotService: PerformanceKpiSnapshotService, performanceNotificationService: PerformanceNotificationService, performanceReviewService: PerformanceReviewService, performanceScoringService: PerformanceScoringService, performanceWorkflowConfigService: PerformanceWorkflowConfigService);
+    private readonly performanceKpiResultService;
+    constructor(reviewModel: Model<PerformanceReviewDocument>, userModel: Model<UserDocument>, workflowModel: Model<PerformanceWorkflowConfigDocument>, performanceCoreValueService: PerformanceCoreValueService, performanceCycleService: PerformanceCycleService, performanceKpiSnapshotService: PerformanceKpiSnapshotService, performanceNotificationService: PerformanceNotificationService, performanceReviewService: PerformanceReviewService, performanceScoringService: PerformanceScoringService, performanceWorkflowConfigService: PerformanceWorkflowConfigService, performanceKpiResultService?: PerformanceKpiResultService);
     private static readonly SUPER_ADMIN_ROLE_NAMES;
     private static readonly ADMIN_ROLE_NAMES;
     private static readonly PERFORMANCE_WORKFLOW_ROLE_NAMES;
@@ -259,11 +261,7 @@ export declare class PerformanceService {
         entity?: string;
         appraisalCycleId?: string;
     }>): Promise<{
-        data: (import("mongoose").FlattenMaps<PerformanceReviewDocument> & Required<{
-            _id: import("mongoose").FlattenMaps<unknown>;
-        }> & {
-            __v: number;
-        })[];
+        data: any[];
         total: number;
     }>;
     getReview(id: string, user?: any): Promise<import("mongoose").FlattenMaps<PerformanceReviewDocument> & Required<{
@@ -285,17 +283,24 @@ export declare class PerformanceService {
         status: number;
         message: string;
     }>;
-    createReview(payload: CreateReviewInput): Promise<any>;
+    createReview(payload: CreateReviewInput, actor?: any): Promise<any>;
+    submitSelfReview(payload: CreateReviewInput & {
+        scores?: Array<{
+            kpiId?: string;
+            actualValue?: string;
+        }>;
+        scorePeriod?: string;
+    }, actor: any): Promise<any>;
     updateReview(id: string, updates: UpdateReviewInput, actor?: any): Promise<Document<unknown, {}, PerformanceReviewDocument, {}, {}> & PerformanceReview & Document<unknown, any, any, Record<string, any>, {}> & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
-    bulkCreateFromCsv(rows: Array<Record<string, string>>): Promise<{
+    bulkCreateFromCsv(rows: Array<Record<string, string>>, actor?: any): Promise<{
         created: number;
         skipped: number;
     }>;
-    deleteReview(id: string): Promise<{
+    deleteReview(id: string, actor?: any): Promise<{
         deleted: boolean;
     }>;
     listCoreValues(user: any, entity?: string): Promise<any>;

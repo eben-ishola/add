@@ -28,9 +28,15 @@ let AuthController = class AuthController {
         const identifier = (payload.identifier ?? payload.username ?? '').toString().trim();
         return await this.authService.signIn(identifier, payload.password, payload.mfaTrustToken, payload.source);
     }
+    async refresh(body) {
+        return this.authService.refreshSession(body.refreshToken);
+    }
+    async logout(body) {
+        return this.authService.endSession(body.refreshToken);
+    }
     async changePassword(body, user) {
         const userId = user?._id ?? user?.id;
-        return this.authService.changePassword(userId ? String(userId) : undefined, body?.currentPassword, body?.newPassword, user?.mfaSetupPending === true, body?.source ?? user?.requestSource, user?.mfaVerified === true);
+        return this.authService.changePassword(userId ? String(userId) : undefined, body?.currentPassword, body?.newPassword, user?.mfaSetupPending === true, body?.source ?? user?.requestSource, user?.mfaVerified === true, user?.sessionId);
     }
     async verifyResetPassword(body) {
         return this.authService.verifyPasswordReset(body.email, body.token);
@@ -50,6 +56,22 @@ __decorate([
     __metadata("design:paramtypes", [sign_in_dto_1.SignInDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('refresh'),
+    (0, common_1.HttpCode)(200),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_request_dto_1.RefreshTokenDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refresh", null);
+__decorate([
+    (0, common_1.Post)('logout'),
+    (0, common_1.HttpCode)(200),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_request_dto_1.RefreshTokenDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "logout", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('change-password'),

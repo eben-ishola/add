@@ -20,6 +20,7 @@ const kpi_schema_1 = require("../../schemas/kpi.schema");
 const performance_kpi_result_schema_1 = require("../../schemas/performance-kpi-result.schema");
 const performance_review_schema_1 = require("../../schemas/performance-review.schema");
 const performance_service_1 = require("./performance.service");
+const performance_access_util_1 = require("../../utils/performance/performance-access.util");
 const DEFAULT_COLLECTION_SOURCES = ['manual', 'mixed'];
 const normalizeString = (value) => {
     if (value === null || value === undefined)
@@ -453,20 +454,6 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
                     resolvedByTitle.add(titleKey);
                 dedupedData.push(row);
             }
-            for (const row of dedupedData) {
-                if (!this.hasActualValue(row?.actualValue))
-                    continue;
-                const kpiIdValue = String((row?.kpiId && typeof row.kpiId === 'object' ? row.kpiId?._id : row?.kpiId) ?? '');
-                await this.syncReviewSnapshotActualValue({
-                    kpiId: kpiIdValue,
-                    actualValue: row.actualValue,
-                    employeeId: String(row?.employeeId ?? ''),
-                    appraisalCycleId: filters.appraisalCycleId,
-                    title: row?.kpiId && typeof row.kpiId === 'object'
-                        ? row.kpiId.title
-                        : row?.kpiTitle,
-                });
-            }
             const snapshotActualByKey = new Map();
             const snapshotActualByTitle = new Map();
             const virtualRows = [];
@@ -478,54 +465,7 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
                 const storedSnapshot = Array.isArray(review?.kpiSnapshot)
                     ? review.kpiSnapshot
                     : [];
-                const storedKpiIdSet = new Set(storedSnapshot
-                    .map((entry) => String(entry?.kpiId ?? ''))
-                    .filter(Boolean));
-                let effectiveSnapshot = storedSnapshot;
-                if (this.performanceService) {
-                    try {
-                        const reviewDate = review?.reviewDate
-                            ? new Date(review.reviewDate)
-                            : new Date();
-                        const refreshed = await this.performanceService.resolveInitialKpis({
-                            employeeId: empId,
-                            employeeName: review?.employeeName,
-                            reviewStartDate: review?.reviewStartDate
-                                ? new Date(review.reviewStartDate)
-                                : undefined,
-                            reviewEndDate: review?.reviewEndDate
-                                ? new Date(review.reviewEndDate)
-                                : undefined,
-                            reviewDate,
-                            appraisalCycleId: review?.appraisalCycleId
-                                ? String(review.appraisalCycleId)
-                                : undefined,
-                        });
-                        const refreshedSnapshot = Array.isArray(refreshed?.kpiSnapshot)
-                            ? refreshed.kpiSnapshot
-                            : [];
-                        if (refreshedSnapshot.length) {
-                            const refreshedKpiIdSet = new Set(refreshedSnapshot
-                                .map((entry) => String(entry?.kpiId ?? ''))
-                                .filter(Boolean));
-                            const idsMatch = storedKpiIdSet.size === refreshedKpiIdSet.size &&
-                                Array.from(storedKpiIdSet).every((id) => refreshedKpiIdSet.has(id));
-                            if (!idsMatch) {
-                                const newKpiIdsArray = Array.from(refreshedKpiIdSet).map((id) => new mongoose_2.Types.ObjectId(id));
-                                await this.performanceService
-                                    .reconcileReviewSnapshot(String(review._id), {
-                                    kpiIds: newKpiIdsArray,
-                                    kpiSnapshot: refreshedSnapshot,
-                                })
-                                    .catch(() => undefined);
-                            }
-                            effectiveSnapshot = refreshedSnapshot;
-                        }
-                    }
-                    catch {
-                        effectiveSnapshot = storedSnapshot;
-                    }
-                }
+                const effectiveSnapshot = storedSnapshot;
                 const snapshotKpiIds = effectiveSnapshot
                     .map((entry) => String(entry?.kpiId ?? ''))
                     .filter((id) => mongoose_2.Types.ObjectId.isValid(id));
@@ -659,7 +599,7 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
             totalPages: Math.ceil(total / safeLimit) || 1,
         };
     }
-    async submitManualResult(payload, actorId) {
+    async submitManualResult(payload, actorId, actor) {
         const kpi = await this.kpiModel.findById(payload.kpiId).lean().exec();
         if (!kpi) {
             throw new common_1.NotFoundException('KPI not found');
@@ -673,6 +613,12 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
         const employeeName = normalizeString(payload.employeeName) ?? normalizeString(kpi.employeeName);
         if (!employeeId) {
             throw new common_1.BadRequestException('Employee ID is required for manual KPI submission.');
+        }
+        const actorIdentifiers = new Set([actor?._id, actor?.id, actor?.userId, actor?.staffId, actorId]
+            .map((value) => normalizeString(value)?.toLowerCase())
+            .filter(Boolean));
+        if (!(0, performance_access_util_1.canManagePerformanceWorkflow)(actor) && !actorIdentifiers.has(employeeId.toLowerCase())) {
+            throw new common_1.BadRequestException('You can only submit KPI results for your own employee record.');
         }
         const actualValue = normalizeString(payload.actualValue);
         if (!actualValue) {
@@ -706,7 +652,7 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
         });
         return saved;
     }
-    async approveResult(id, updates, actorId) {
+    async approveResult(id, updates, actorId, actor) {
         const sourceResult = await this.resultModel.findById(id).exec();
         if (!sourceResult) {
             throw new common_1.NotFoundException('KPI result not found');
@@ -714,6 +660,24 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
         const kpi = await this.kpiModel.findById(sourceResult.kpiId).lean().exec();
         if (!kpi) {
             throw new common_1.NotFoundException('KPI not found');
+        }
+        if (!(0, performance_access_util_1.canManagePerformanceWorkflow)(actor)) {
+            const reviewerId = normalizeString(actor?._id ?? actor?.id ?? actor?.userId ?? actorId);
+            if (!reviewerId) {
+                throw new common_1.BadRequestException('Unable to identify the reviewer.');
+            }
+            const cycleId = String(kpi?.appraisalCycleId ?? '').trim();
+            const reviewQuery = {
+                employeeId: sourceResult.employeeId,
+                $or: [{ reviewerId }, { reviewer2Id: reviewerId }],
+            };
+            if (mongoose_2.Types.ObjectId.isValid(cycleId)) {
+                reviewQuery.appraisalCycleId = new mongoose_2.Types.ObjectId(cycleId);
+            }
+            const assignedReview = await this.reviewModel.findOne(reviewQuery).lean().exec();
+            if (!assignedReview) {
+                throw new common_1.BadRequestException('You are not assigned to review this employee KPI.');
+            }
         }
         const source = normalizeString(sourceResult.source)?.toLowerCase();
         let result = sourceResult;
@@ -765,10 +729,7 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
             result.achievement = score.achievement;
             result.score = score.score;
             result.source = 'reviewer';
-            if (resolvedValue !== undefined &&
-                resolvedValue !== kpi.actualValue) {
-                await this.kpiModel.updateOne({ _id: kpi._id }, { $set: { actualValue: resolvedValue } });
-            }
+            result.reviewerActualValue = resolvedValue;
         }
         if (updates.isActualValueLocked !== undefined) {
             result.isActualValueLocked = Boolean(updates.isActualValueLocked);
@@ -791,13 +752,6 @@ let PerformanceKpiResultService = class PerformanceKpiResultService {
         result.reviewerName = normalizeString(updates.reviewerName) ?? result.reviewerName;
         result.reviewedAt = new Date();
         const saved = await result.save();
-        await this.syncReviewSnapshotActualValue({
-            kpiId: result.kpiId,
-            actualValue: result.actualValue,
-            employeeId: result.employeeId,
-            appraisalCycleId: kpi?.appraisalCycleId,
-            title: kpi?.title,
-        });
         return saved;
     }
     async openMonthlyResults(periodInput) {

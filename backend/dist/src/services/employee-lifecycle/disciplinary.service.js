@@ -32,6 +32,23 @@ let DisciplinaryService = class DisciplinaryService {
         const parsed = new Date(value);
         return Number.isNaN(parsed.getTime()) ? undefined : parsed;
     }
+    normalizeReviewerPanel(value) {
+        if (!Array.isArray(value))
+            return [];
+        const seen = new Set();
+        return value.reduce((panel, member) => {
+            const id = typeof member?.id === 'string' ? member.id.trim() : '';
+            const name = typeof member?.name === 'string' ? member.name.trim() : '';
+            if (!name)
+                return panel;
+            const key = id || name.toLocaleLowerCase();
+            if (seen.has(key))
+                return panel;
+            seen.add(key);
+            panel.push(id ? { id, name } : { name });
+            return panel;
+        }, []);
+    }
     normalizeEmail(value) {
         if (typeof value !== 'string')
             return null;
@@ -172,8 +189,13 @@ let DisciplinaryService = class DisciplinaryService {
             throw new common_1.BadRequestException('Employee ID is required');
         }
         const { sendEmail, ...persisted } = payload ?? {};
+        const reviewerPanel = this.normalizeReviewerPanel(payload.reviewerPanel);
+        const leadReviewer = reviewerPanel[0];
         const record = new this.caseModel({
             ...persisted,
+            reviewerPanel,
+            reviewerId: leadReviewer?.id ?? payload.reviewerId,
+            reviewerName: leadReviewer?.name ?? payload.reviewerName,
             incidentDate: this.normalizeDate(payload.incidentDate) ?? new Date(),
             salaryDeductionAppliedAt: this.normalizeDate(payload.salaryDeductionAppliedAt),
             attachments: payload.attachments ?? [],
@@ -198,10 +220,18 @@ let DisciplinaryService = class DisciplinaryService {
         if (updates.attachments) {
             record.attachments = updates.attachments;
         }
+        if (updates.reviewerPanel !== undefined) {
+            const reviewerPanel = this.normalizeReviewerPanel(updates.reviewerPanel);
+            const leadReviewer = reviewerPanel[0];
+            record.reviewerPanel = reviewerPanel;
+            record.reviewerId = leadReviewer?.id;
+            record.reviewerName = leadReviewer?.name;
+        }
         const mergeable = { ...updates };
         delete mergeable.attachments;
         delete mergeable.incidentDate;
         delete mergeable.sendEmail;
+        delete mergeable.reviewerPanel;
         Object.assign(record, mergeable);
         return record.save();
     }
@@ -277,7 +307,7 @@ let DisciplinaryService = class DisciplinaryService {
             'status',
             'severity',
             'incident_date',
-            'reviewer',
+            'review_panel',
             'summary',
             'next_steps',
             'created_at',
@@ -291,7 +321,7 @@ let DisciplinaryService = class DisciplinaryService {
             item.status ?? '',
             item.severity ?? '',
             item.incidentDate ? new Date(item.incidentDate).toISOString() : '',
-            item.reviewerName ?? item.reviewerId ?? '',
+            item.reviewerPanel?.map((member) => member.name).filter(Boolean).join('; ') || item.reviewerName || item.reviewerId || '',
             item.summary ?? '',
             item.nextSteps ?? '',
             item.createdAt ? new Date(item.createdAt).toISOString() : '',

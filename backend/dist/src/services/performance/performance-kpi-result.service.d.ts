@@ -41,7 +41,7 @@ export declare class PerformanceKpiResultService {
         employeeName?: string;
         actualValue?: string;
         entity?: string;
-    }, actorId?: string): Promise<import("mongoose").Document<unknown, {}, PerformanceKpiResultDocument, {}, {}> & PerformanceKpiResult & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+    }, actorId?: string, actor?: any): Promise<import("mongoose").Document<unknown, {}, PerformanceKpiResultDocument, {}, {}> & PerformanceKpiResult & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
         _id: unknown;
     }> & {
         __v: number;
@@ -51,7 +51,7 @@ export declare class PerformanceKpiResultService {
         isActualValueLocked?: boolean;
         status?: string;
         reviewerName?: string;
-    }, actorId?: string): Promise<import("mongoose").Document<unknown, {}, PerformanceKpiResultDocument, {}, {}> & PerformanceKpiResult & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+    }, actorId?: string, actor?: any): Promise<import("mongoose").Document<unknown, {}, PerformanceKpiResultDocument, {}, {}> & PerformanceKpiResult & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
         _id: unknown;
     }> & {
         __v: number;
