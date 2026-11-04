@@ -126,9 +126,6 @@ let PerformanceCycleService = class PerformanceCycleService {
         if (reviewStartDate < cycleStartDate) {
             throw new common_1.BadRequestException('Review start date cannot be earlier than appraisal start date.');
         }
-        if (reviewEndDate > cycleEndDate) {
-            throw new common_1.BadRequestException('Review end date cannot be later than appraisal end date.');
-        }
     }
     async assertNoOverlappingActiveCycle(entityId, startDate, endDate, excludedId) {
         const query = {

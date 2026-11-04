@@ -1000,7 +1000,7 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
             throw new common_1.BadRequestException('No transport allowance records provided.');
         }
         const context = this.resolveContext(payload, records);
-        await this.assertTransportWorkflowAccess(user, context.normalizedEntity, ['initiator'], ['view transport allowance', 'view payroll', 'view payroll settings'], 'You are not allowed to initiate transport allowance for this entity.');
+        await this.assertTransportWorkflowAccess(user, context.normalizedEntity, ['initiator'], [], 'You are not allowed to initiate transport allowance for this entity.');
         const rows = this.buildProrationRows(records, payload).map((row) => ({
             ...row,
             staff: String(row.staff),
@@ -1015,7 +1015,7 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
     }
     async generate(payload, user) {
         const entity = this.normalizeObjectId(payload?.entity, 'Entity');
-        await this.assertTransportWorkflowAccess(user, entity, ['initiator'], ['view transport allowance', 'view payroll', 'view payroll settings'], 'You are not allowed to initiate transport allowance for this entity.');
+        await this.assertTransportWorkflowAccess(user, entity, ['initiator'], [], 'You are not allowed to initiate transport allowance for this entity.');
         const departmentRaw = this.normalizeText(payload?.department);
         const year = this.toNumber(payload?.year, Number.NaN);
         const month = this.toNumber(payload?.month, Number.NaN);
@@ -1130,7 +1130,7 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
             throw new common_1.BadRequestException('No transport allowance records provided.');
         }
         const context = this.resolveContext(payload, records);
-        await this.assertTransportWorkflowAccess(user, context.normalizedEntity, ['initiator'], ['view transport allowance', 'view payroll', 'view payroll settings'], 'You are not allowed to initiate transport allowance for this entity.');
+        await this.assertTransportWorkflowAccess(user, context.normalizedEntity, ['initiator'], [], 'You are not allowed to initiate transport allowance for this entity.');
         const rows = this.buildProrationRows(records, payload);
         const staffIds = rows.map((r) => r.staff).filter(Boolean);
         const staffUsers = staffIds.length
@@ -1216,7 +1216,7 @@ let TransportAllowanceService = TransportAllowanceService_1 = class TransportAll
             throw new common_1.BadRequestException('No transport allowance records provided.');
         }
         const context = this.resolveBatchContext(payload, records);
-        await this.assertTransportWorkflowAccess(actor, context.normalizedEntity, ['initiator'], ['view transport allowance', 'view payroll', 'view payroll settings'], 'You are not allowed to initiate transport allowance for this entity.');
+        await this.assertTransportWorkflowAccess(actor, context.normalizedEntity, ['initiator'], [], 'You are not allowed to initiate transport allowance for this entity.');
         const prorationRows = this.buildProrationRows(records, payload);
         const staffIds = prorationRows
             .map((r) => r.staff)
