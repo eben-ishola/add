@@ -199,8 +199,6 @@ let PerformanceCycleService = class PerformanceCycleService {
         const query = {
             entity: new mongoose_2.Types.ObjectId(entityId),
             status: { $regex: /^active$/i },
-            startDate: { $lte: new Date() },
-            endDate: { $gte: new Date() },
             reviewStartDate: { $lte: new Date() },
             reviewEndDate: { $gte: new Date() },
         };
